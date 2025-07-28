@@ -1,7 +1,6 @@
 export const defaultConfig = {
   // API key
-  apiKey:
-    "CAP-1C17E4AEFA58910F76A6E38624A263BF3E7C49B86B569DBD49753FA19535E9B0",
+  apiKey: "CAP-1C17E4AEFA58910F76A6E38624A263BF3E7C49B86B569DBD49753FA19535E9B0",
 
   // Your Developer appId, Apply in dashboard's developer section
   appId: "",
@@ -35,7 +34,7 @@ export const defaultConfig = {
   enabledForCloudflare: true,
 
   // Task type: click or token
-  reCaptchaMode: "click",
+  reCaptchaMode: "token",
   hCaptchaMode: "click",
 
   // Delay before solving captcha
