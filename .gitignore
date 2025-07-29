@@ -94,4 +94,7 @@ Thumbs.db
 *~
 
 # Screenshots (if any)
-screenshots/ 
+screenshots/
+
+# Browser data directory (for persistent sessions)
+browser-data/ 
