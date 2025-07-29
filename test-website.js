@@ -78,10 +78,10 @@ async function testWebsite() {
     console.log("✅ Page fully loaded");
 
     // Wait for captcha to be solved
-    console.log("⏳ Waiting for captcha to be solved...");
+    console.log("⏳ Checking for captcha...");
     let captchaSolved = false;
     let attempts = 0;
-    const maxAttempts = 60; // 60 seconds total
+    const maxAttempts = 30; // Increased from 10 to 30 seconds to allow for captcha solving
 
     while (attempts < maxAttempts && !captchaSolved) {
       try {
@@ -122,15 +122,7 @@ async function testWebsite() {
     }
 
     if (captchaSolved) {
-      // Wait for page to fully stabilize after captcha
-      console.log("⏳ Waiting for page to stabilize after captcha...");
-      await page.waitForTimeout(3000);
-
-      // Wait for navigation elements to be ready
-      console.log("⏳ Waiting for navigation elements to load...");
-      await page.waitForTimeout(2000);
-
-      // Check login status using CSS classes
+      // Check login status using CSS classes immediately after captcha
       console.log("🔍 Checking login status using CSS classes...");
 
       const loginStatus = await page.evaluate(() => {
@@ -192,9 +184,49 @@ async function testWebsite() {
           console.log("✅ Login link found, clicking...");
           console.log("📝 Login link details:", loginLink);
 
-          // Click the login link
-          await page.click(`a[href="${loginLink.href}"]`);
-          console.log("✅ Login link clicked");
+          // Click the login link using a more reliable method
+          try {
+            // Try multiple selectors to click the login link
+            const loginSelectors = [
+              'a[href="/auth/login?redirect=/"]',
+              'a[href*="/auth/login"]',
+              "a.btn.primary--text.log-in",
+              'a:contains("Log In")',
+            ];
+
+            let clicked = false;
+            for (const selector of loginSelectors) {
+              try {
+                const element = await page.$(selector);
+                if (element) {
+                  await element.click();
+                  console.log(
+                    `✅ Login link clicked using selector: ${selector}`
+                  );
+                  clicked = true;
+                  break;
+                }
+              } catch (error) {
+                console.log(`⚠️ Failed to click with selector: ${selector}`);
+              }
+            }
+
+            if (!clicked) {
+              // Fallback: use evaluate to click
+              await page.evaluate(() => {
+                const loginLink =
+                  document.querySelector('a[href="/auth/login?redirect=/"]') ||
+                  document.querySelector('a[href*="/auth/login"]') ||
+                  document.querySelector("a.btn.primary--text.log-in");
+                if (loginLink) {
+                  loginLink.click();
+                }
+              });
+              console.log("✅ Login link clicked using evaluate fallback");
+            }
+          } catch (error) {
+            console.log("❌ Error clicking login link:", error.message);
+          }
 
           // Wait for login form to load
           console.log("⏳ Waiting for login form to load...");
@@ -363,132 +395,140 @@ async function testWebsite() {
           console.log("❌ No login link found, proceeding with search...");
         }
       }
-    } else {
-      console.log("⏰ Timeout reached, captcha might still be present");
-    }
 
-    // Perform search (whether logged in or not)
-    console.log("✅ Back on home page, performing search...");
+      // Wait for page to fully stabilize after captcha
+      console.log("⏳ Waiting for page to stabilize after captcha...");
+      await page.waitForTimeout(3000);
 
-    // Wait for search form to be ready
-    await page.waitForSelector("#search-name", { timeout: 10000 });
-    await page.waitForSelector("#search-location", {
-      timeout: 10000,
-    });
-
-    // Fill name search
-    const nameFilled = await page.evaluate((name) => {
-      const nameInput = document.querySelector("#search-name");
-      if (nameInput) {
-        nameInput.value = name;
-        nameInput.dispatchEvent(new Event("input", { bubbles: true }));
-        nameInput.dispatchEvent(new Event("change", { bubbles: true }));
-        return true;
-      }
-      return false;
-    }, "Adam Nemirow");
-
-    if (nameFilled) {
-      console.log("✅ Name filled: Adam Nemirow");
-    } else {
-      console.error("❌ Name input not found");
-    }
-
-    // Fill location search
-    const locationFilled = await page.evaluate((location) => {
-      const locationInput = document.querySelector("#search-location");
-      if (locationInput) {
-        locationInput.value = location;
-        locationInput.dispatchEvent(new Event("input", { bubbles: true }));
-        locationInput.dispatchEvent(new Event("change", { bubbles: true }));
-        return true;
-      }
-      return false;
-    }, "Charleston, SC");
-
-    if (locationFilled) {
-      console.log("✅ Location filled: Charleston, SC");
-
-      // Wait for dropdown to appear and click first suggestion
+      // Wait for navigation elements to be ready
+      console.log("⏳ Waiting for navigation elements to load...");
       await page.waitForTimeout(2000);
 
-      const suggestionClicked = await page.evaluate(() => {
-        const suggestions = document.querySelector(
-          ".d-suggestions-wrapper-search li"
-        );
-        if (suggestions) {
-          suggestions.click();
+      // Perform search (whether logged in or not)
+      console.log("✅ Back on home page, performing search...");
+
+      // Wait for search form to be ready
+      await page.waitForSelector("#search-name", { timeout: 10000 });
+      await page.waitForSelector("#search-location", {
+        timeout: 10000,
+      });
+
+      // Fill name search
+      const nameFilled = await page.evaluate((name) => {
+        const nameInput = document.querySelector("#search-name");
+        if (nameInput) {
+          nameInput.value = name;
+          nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+          nameInput.dispatchEvent(new Event("change", { bubbles: true }));
           return true;
         }
         return false;
-      });
+      }, "Adam Nemirow");
 
-      if (suggestionClicked) {
-        console.log("✅ Location suggestion clicked");
+      if (nameFilled) {
+        console.log("✅ Name filled: Adam Nemirow");
       } else {
-        console.log("⚠️ No location suggestions found, continuing...");
+        console.error("❌ Name input not found");
       }
-    } else {
-      console.error("❌ Location input not found");
-    }
 
-    // Click search button
-    const searchButton = await page.$("#wp-search");
-    if (searchButton) {
-      console.log("✅ Search button found, clicking...");
-      await searchButton.click();
-      console.log("✅ Search submitted");
-
-      // Wait for search results page to load
-      console.log("⏳ Waiting for search results page...");
-      await page.waitForFunction(() => document.readyState === "complete");
-
-      // Check for Terms of Service modal and handle it
-      console.log("🔍 Checking for Terms of Service modal...");
-      const tosModal = await page.$(".tos-modal-card");
-
-      if (tosModal) {
-        console.log("✅ Terms of Service modal found, handling...");
-
-        // Check the checkbox
-        const checkbox = await page.$("#tos-checkbox");
-        if (checkbox) {
-          await checkbox.click();
-          console.log("✅ Terms checkbox checked");
-        } else {
-          console.error("❌ Terms checkbox not found");
+      // Fill location search
+      const locationFilled = await page.evaluate((location) => {
+        const locationInput = document.querySelector("#search-location");
+        if (locationInput) {
+          locationInput.value = location;
+          locationInput.dispatchEvent(new Event("input", { bubbles: true }));
+          locationInput.dispatchEvent(new Event("change", { bubbles: true }));
+          return true;
         }
+        return false;
+      }, "Charleston, SC");
 
-        // Click Continue to Results button
-        const continueButton = await page.$("[data-js-tos-continue-button]");
-        if (continueButton) {
-          await continueButton.click();
-          console.log("✅ Continue to Results button clicked");
+      if (locationFilled) {
+        console.log("✅ Location filled: Charleston, SC");
+
+        // Wait for dropdown to appear and click first suggestion
+        await page.waitForTimeout(2000);
+
+        const suggestionClicked = await page.evaluate(() => {
+          const suggestions = document.querySelector(
+            ".d-suggestions-wrapper-search li"
+          );
+          if (suggestions) {
+            suggestions.click();
+            return true;
+          }
+          return false;
+        });
+
+        if (suggestionClicked) {
+          console.log("✅ Location suggestion clicked");
         } else {
-          console.error("❌ Continue to Results button not found");
+          console.log("⚠️ No location suggestions found, continuing...");
         }
       } else {
-        console.log("ℹ️ No Terms of Service modal found, continuing...");
+        console.error("❌ Location input not found");
       }
 
-      // Wait a bit for the page to fully load after modal handling
-      await page.waitForTimeout(2000);
+      // Click search button
+      const searchButton = await page.$("#wp-search");
+      if (searchButton) {
+        console.log("✅ Search button found, clicking...");
+        await searchButton.click();
+        console.log("✅ Search submitted");
 
-      // Click on the first email link
-      console.log("🔍 Looking for email links...");
-      const emailLinks = await page.$$('[data-qa-selector="email-link"]');
+        // Wait for search results page to load
+        console.log("⏳ Waiting for search results page...");
+        await page.waitForFunction(() => document.readyState === "complete");
 
-      if (emailLinks.length > 0) {
-        console.log(
-          `✅ Found ${emailLinks.length} email link(s), clicking the first one...`
-        );
-        await emailLinks[0].click();
-        console.log("✅ First email link clicked");
+        // Check for Terms of Service modal and handle it
+        console.log("🔍 Checking for Terms of Service modal...");
+        const tosModal = await page.$(".tos-modal-card");
+
+        if (tosModal) {
+          console.log("✅ Terms of Service modal found, handling...");
+
+          // Check the checkbox
+          const checkbox = await page.$("#tos-checkbox");
+          if (checkbox) {
+            await checkbox.click();
+            console.log("✅ Terms checkbox checked");
+          } else {
+            console.error("❌ Terms checkbox not found");
+          }
+
+          // Click Continue to Results button
+          const continueButton = await page.$("[data-js-tos-continue-button]");
+          if (continueButton) {
+            await continueButton.click();
+            console.log("✅ Continue to Results button clicked");
+          } else {
+            console.error("❌ Continue to Results button not found");
+          }
+        } else {
+          console.log("ℹ️ No Terms of Service modal found, continuing...");
+        }
+
+        // Wait a bit for the page to fully load after modal handling
+        await page.waitForTimeout(2000);
+
+        // Click on the first email link
+        console.log("🔍 Looking for email links...");
+        const emailLinks = await page.$$('[data-qa-selector="email-link"]');
+
+        if (emailLinks.length > 0) {
+          console.log(
+            `✅ Found ${emailLinks.length} email link(s), clicking the first one...`
+          );
+          await emailLinks[0].click();
+          console.log("✅ First email link clicked");
+        } else {
+          console.log("ℹ️ No email links found on the page");
+        }
       } else {
-        console.log("ℹ️ No email links found on the page");
+        console.error("❌ Search button not found");
       }
     } else {
-      console.error("❌ Search button not found");
+      console.log("⏰ Timeout reached, captcha might still be present");
     }
 
     console.log("🌐 Browser window is open and will stay open");
