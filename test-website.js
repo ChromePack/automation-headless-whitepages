@@ -268,6 +268,63 @@ async function testWebsite() {
               logger.info("✅ Search button found, clicking...");
               await searchButton.click();
               logger.info("✅ Search submitted");
+
+              // Wait for search results page to load
+              logger.info("⏳ Waiting for search results page...");
+              await page.waitForFunction(
+                () => document.readyState === "complete"
+              );
+
+              // Check for Terms of Service modal and handle it
+              logger.info("🔍 Checking for Terms of Service modal...");
+              const tosModal = await page.$(".tos-modal-card");
+
+              if (tosModal) {
+                logger.info("✅ Terms of Service modal found, handling...");
+
+                // Check the checkbox
+                const checkbox = await page.$("#tos-checkbox");
+                if (checkbox) {
+                  await checkbox.click();
+                  logger.info("✅ Terms checkbox checked");
+                } else {
+                  logger.error("❌ Terms checkbox not found");
+                }
+
+                // Click Continue to Results button
+                const continueButton = await page.$(
+                  "[data-js-tos-continue-button]"
+                );
+                if (continueButton) {
+                  await continueButton.click();
+                  logger.info("✅ Continue to Results button clicked");
+                } else {
+                  logger.error("❌ Continue to Results button not found");
+                }
+              } else {
+                logger.info(
+                  "ℹ️ No Terms of Service modal found, continuing..."
+                );
+              }
+
+              // Wait a bit for the page to fully load after modal handling
+              await page.waitForTimeout(2000);
+
+              // Click on the first email link
+              logger.info("🔍 Looking for email links...");
+              const emailLinks = await page.$$(
+                '[data-qa-selector="email-link"]'
+              );
+
+              if (emailLinks.length > 0) {
+                logger.info(
+                  `✅ Found ${emailLinks.length} email link(s), clicking the first one...`
+                );
+                await emailLinks[0].click();
+                logger.info("✅ First email link clicked");
+              } else {
+                logger.info("ℹ️ No email links found on the page");
+              }
             } else {
               logger.error("❌ Search button not found");
             }
