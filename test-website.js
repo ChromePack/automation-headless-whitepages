@@ -77,19 +77,66 @@ async function testWebsite() {
     await page.waitForFunction(() => document.readyState === "complete");
     console.log("✅ Page fully loaded");
 
-    // Wait a bit to ensure captcha is handled
-    await page.waitForTimeout(5000);
+    // Wait for captcha to be solved and then check for login button
+    console.log("⏳ Waiting for captcha to be solved...");
+    let captchaSolved = false;
+    let attempts = 0;
+    const maxAttempts = 60; // 60 seconds total
 
-    // Check for login button after captcha is solved
-    console.log("🔍 Checking for login button...");
-    const loginButton = await page.$('a[href="/auth/login?redirect=/"]');
+    while (attempts < maxAttempts && !captchaSolved) {
+      try {
+        // Check if captcha is present
+        const captchaElement = await page.$(
+          'input[name="cf-turnstile-response"]'
+        );
+        const captchaContainer = await page.$('div[id^="RInW4"]');
+        const captchaPresent = !!(captchaElement || captchaContainer);
 
-    if (loginButton) {
-      console.log("✅ Login button found, clicking...");
-      await loginButton.click();
-      console.log("✅ Login button clicked");
+        if (!captchaPresent) {
+          // Wait 1 second to ensure captcha doesn't reappear
+          console.log(
+            "⏳ Captcha not detected, waiting 1 second to ensure stability..."
+          );
+          await page.waitForTimeout(1000);
+
+          // Check again after delay
+          const captchaStillNotPresent =
+            (await page.$('input[name="cf-turnstile-response"]')) === null &&
+            (await page.$('div[id^="RInW4"]')) === null;
+
+          if (captchaStillNotPresent) {
+            console.log(
+              "✅ Captcha solved or not present, checking for login button..."
+            );
+            captchaSolved = true;
+            break;
+          }
+        }
+
+        // Wait 1 second before next check
+        await page.waitForTimeout(1000);
+        attempts++;
+      } catch (error) {
+        console.log("⚠️ Error during captcha check attempt:", error.message);
+        await page.waitForTimeout(1000);
+        attempts++;
+      }
+    }
+
+    if (captchaSolved) {
+      // Check for login button after captcha is solved
+      console.log("🔍 Checking for login button...");
+      const loginButton = await page.$('a[href="/auth/login?redirect=/"]');
+
+      if (loginButton) {
+        console.log("✅ Login button found, clicking...");
+        await loginButton.click();
+        console.log("✅ Login button clicked");
+      } else {
+        console.log("❌ Login button not found");
+      }
     } else {
-      console.log("❌ Login button not found");
+      console.log("⏰ Timeout reached, captcha might still be present");
     }
 
     // Handle login form filling after login button is clicked
