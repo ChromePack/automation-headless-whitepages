@@ -61,13 +61,8 @@ async function testWebsite() {
           console.error("❌ Error solving captcha:", e.err || e.message);
           return process.exit(1);
         }
-      } else if (txt.includes("Console was cleared")) {
-        // Ignore console clear messages
-        return;
-      } else {
-        // Log other console messages for debugging
-        console.log("📝 Console:", txt);
       }
+      // Removed all other console logging
     });
 
     // Navigate to the target website
@@ -135,77 +130,75 @@ async function testWebsite() {
       console.log("⏳ Waiting for navigation elements to load...");
       await page.waitForTimeout(2000);
 
-      // Check for login link in navigation
-      console.log("🔍 Checking for login link in navigation...");
+      // Check login status using CSS classes
+      console.log("🔍 Checking login status using CSS classes...");
 
-      // Debug: Let's see what login-related links exist on the page
-      const allLoginLinks = await page.evaluate(() => {
-        const links = Array.from(document.querySelectorAll("a"));
-        const loginLinks = links.filter((link) => {
-          const href = link.href || "";
-          const text = link.textContent || "";
-          return (
-            href.includes("/auth/login") ||
-            text.toLowerCase().includes("log in") ||
-            text.toLowerCase().includes("login")
-          );
-        });
-        return loginLinks.map((link) => ({
-          href: link.href,
-          text: link.textContent.trim(),
-          classes: link.className,
-          id: link.id,
-        }));
+      const loginStatus = await page.evaluate(() => {
+        const loggedInContent = document.querySelector(".logged-in-content");
+        const loggedOutContent = document.querySelector(".logged-out-content");
+
+        if (loggedInContent && loggedOutContent) {
+          const isLoggedIn =
+            !loggedInContent.classList.contains("hidden") &&
+            loggedOutContent.classList.contains("hidden");
+          return {
+            isLoggedIn,
+            loggedInVisible: !loggedInContent.classList.contains("hidden"),
+            loggedOutVisible: !loggedOutContent.classList.contains("hidden"),
+          };
+        }
+
+        return {
+          isLoggedIn: false,
+          loggedInVisible: false,
+          loggedOutVisible: true,
+        };
       });
 
-      console.log("🔍 Found login-related links:", allLoginLinks);
+      console.log("📊 Login status:", loginStatus);
 
-      // Wait for login link to appear with polling
-      let loginLink = null;
-      let loginAttempts = 0;
-      const maxLoginAttempts = 10;
+      if (loginStatus.isLoggedIn) {
+        console.log("✅ User is already logged in, proceeding to search...");
+      } else {
+        console.log("❌ User is not logged in, checking for login link...");
 
-      while (loginAttempts < maxLoginAttempts && !loginLink) {
-        // Try multiple selectors
-        loginLink =
-          (await page.$('a[href="/auth/login?redirect=/"]')) ||
-          (await page.$('a[href*="/auth/login"]')) ||
-          (await page.$('a[href*="login"]')) ||
-          (await page.$('a:contains("Log In")')) ||
-          (await page.$('a:contains("login")'));
+        // Check for login link in navigation
+        console.log("🔍 Checking for login link in navigation...");
 
-        if (!loginLink) {
-          console.log(
-            `⏳ Login link not found, attempt ${
-              loginAttempts + 1
-            }/${maxLoginAttempts}...`
-          );
-          await page.waitForTimeout(1000);
-          loginAttempts++;
-        }
-      }
-
-      if (loginLink) {
-        console.log("✅ Login link found, clicking...");
-        await loginLink.click();
-        console.log("✅ Login link clicked");
-
-        // Wait for login form to load
-        console.log("⏳ Waiting for login form to load...");
-        await page.waitForTimeout(2000);
-
-        // Fill login form
-        console.log("📝 Filling login form...");
-
-        try {
-          // Wait for page to load completely
-          await page.waitForFunction(() => document.readyState === "complete", {
-            timeout: 15000,
+        // Debug: Let's see what login-related links exist on the page
+        const allLoginLinks = await page.evaluate(() => {
+          const links = Array.from(document.querySelectorAll("a"));
+          const loginLinks = links.filter((link) => {
+            const href = link.href || "";
+            const text = link.textContent || "";
+            return (
+              href.includes("/auth/login") ||
+              text.toLowerCase().includes("log in") ||
+              text.toLowerCase().includes("login")
+            );
           });
-          console.log("✅ Page fully loaded");
+          return loginLinks.map((link) => ({
+            href: link.href,
+            text: link.textContent.trim(),
+            classes: link.className,
+            id: link.id,
+          }));
+        });
 
-          // Wait a bit more for any dynamic content
-          await page.waitForTimeout(3000);
+        console.log("🔍 Found login-related links:", allLoginLinks);
+
+        if (allLoginLinks.length > 0) {
+          const loginLink = allLoginLinks[0];
+          console.log("✅ Login link found, clicking...");
+          console.log("📝 Login link details:", loginLink);
+
+          // Click the login link
+          await page.click(`a[href="${loginLink.href}"]`);
+          console.log("✅ Login link clicked");
+
+          // Wait for login form to load
+          console.log("⏳ Waiting for login form to load...");
+          await page.waitForTimeout(2000);
 
           // Debug: Check what page we're on and what elements are available
           const currentUrl = await page.url();
@@ -237,140 +230,138 @@ async function testWebsite() {
           });
 
           console.log(
-            "🔍 Available elements on login page:",
+            "🔍 Available elements after login click:",
             availableElements
           );
 
-          // Try to find email input with different selectors
-          let emailInput = null;
-          const emailSelectors = [
-            'input[type="email"]',
-            'input[name="email"]',
-            'input[placeholder*="email" i]',
-            'input[placeholder*="Email" i]',
-            'input[id*="email" i]',
-            'input[name*="email" i]',
-          ];
+          // Fill login form
+          console.log("📝 Filling login form...");
 
-          for (const selector of emailSelectors) {
-            emailInput = await page.$(selector);
-            if (emailInput) {
-              console.log(`✅ Found email input with selector: ${selector}`);
-              break;
+          try {
+            // Wait for page to load completely
+            await page.waitForFunction(
+              () => document.readyState === "complete",
+              { timeout: 15000 }
+            );
+            console.log("✅ Page fully loaded");
+
+            // Wait a bit more for any dynamic content
+            await page.waitForTimeout(3000);
+
+            // Debug: Check what page we're on and what elements are available
+            const currentUrl = await page.url();
+            console.log("🔍 Current URL after login click:", currentUrl);
+
+            // Debug: Check what elements are available on the page
+            const availableElements = await page.evaluate(() => {
+              const elements = {
+                allInputs: Array.from(document.querySelectorAll("input")).map(
+                  (input) => ({
+                    id: input.id,
+                    name: input.name,
+                    type: input.type,
+                    placeholder: input.placeholder,
+                    className: input.className,
+                  })
+                ),
+                allForms: Array.from(document.querySelectorAll("form")).map(
+                  (form) => ({
+                    id: form.id,
+                    className: form.className,
+                    action: form.action,
+                  })
+                ),
+                pageTitle: document.title,
+                bodyText: document.body.textContent.substring(0, 200),
+              };
+              return elements;
+            });
+
+            console.log(
+              "🔍 Available elements after login click:",
+              availableElements
+            );
+
+            // Find email and password inputs
+            const emailInput = await page.$('input[placeholder*="email" i]');
+            const passwordInput = await page.$('input[type="password"]');
+
+            if (emailInput && passwordInput) {
+              console.log(
+                '✅ Found email input with selector: input[placeholder*="email" i]'
+              );
+              console.log(
+                '✅ Found password input with selector: input[type="password"]'
+              );
+
+              // Fill email field using proper typing
+              await emailInput.click();
+              await page.keyboard.type(process.env.WHITEPAGES_EMAIL, {
+                delay: 100,
+              });
+              console.log("✅ Email filled");
+
+              // Fill password field using proper typing
+              await passwordInput.click();
+              await page.keyboard.type(process.env.WHITEPAGES_PASSWORD, {
+                delay: 100,
+              });
+              console.log("✅ Password filled");
+
+              // Find and click submit button
+              const submitButton = await page.$('button[type="submit"]');
+              if (submitButton) {
+                console.log(
+                  '✅ Found submit button with selector: button[type="submit"]'
+                );
+                await submitButton.click();
+                console.log("✅ Submit button clicked");
+                console.log("✅ Login form submitted");
+                await page.waitForTimeout(3000);
+
+                // Debug: Check what page we're on after login
+                const currentUrl = await page.url();
+                console.log("🔍 Current URL after login attempt:", currentUrl);
+
+                // Debug: Check what elements are available on the page
+                const availableElements = await page.evaluate(() => {
+                  const elements = {
+                    searchName: document.querySelector("#search-name"),
+                    searchLocation: document.querySelector("#search-location"),
+                    searchButton: document.querySelector(
+                      'button[type="submit"]'
+                    ),
+                    allInputs: Array.from(
+                      document.querySelectorAll("input")
+                    ).map((input) => ({
+                      id: input.id,
+                      name: input.name,
+                      type: input.type,
+                      placeholder: input.placeholder,
+                      className: input.className,
+                    })),
+                    pageTitle: document.title,
+                    bodyText: document.body.textContent.substring(0, 200),
+                  };
+                  return elements;
+                });
+
+                console.log(
+                  "🔍 Available elements after login:",
+                  availableElements
+                );
+              } else {
+                console.log("❌ Submit button not found");
+              }
+            } else {
+              console.log("❌ Email or password input not found");
             }
+          } catch (error) {
+            console.log("❌ Error during login form filling:", error.message);
           }
-
-          if (!emailInput) {
-            console.log("❌ Email input not found with any selector");
-            return;
-          }
-
-          // Try to find password input with different selectors
-          let passwordInput = null;
-          const passwordSelectors = [
-            'input[type="password"]',
-            'input[name="password"]',
-            'input[placeholder*="password" i]',
-            'input[placeholder*="Password" i]',
-            'input[id*="password" i]',
-            'input[name*="password" i]',
-          ];
-
-          for (const selector of passwordSelectors) {
-            passwordInput = await page.$(selector);
-            if (passwordInput) {
-              console.log(`✅ Found password input with selector: ${selector}`);
-              break;
-            }
-          }
-
-          if (!passwordInput) {
-            console.log("❌ Password input not found with any selector");
-            return;
-          }
-
-          // Fill email field using proper typing
-          await emailInput.click();
-          await page.keyboard.type(process.env.WHITEPAGES_EMAIL, {
-            delay: 100,
-          });
-          console.log("✅ Email filled");
-
-          // Fill password field using proper typing
-          await passwordInput.click();
-          await page.keyboard.type(process.env.WHITEPAGES_PASSWORD, {
-            delay: 100,
-          });
-          console.log("✅ Password filled");
-
-          // Try to find and click submit button
-          const submitSelectors = [
-            'button[type="submit"]',
-            'input[type="submit"]',
-            'button:contains("Log in")',
-            'button:contains("Login")',
-            'button:contains("Sign in")',
-            'button:contains("Submit")',
-          ];
-
-          let submitButton = null;
-          for (const selector of submitSelectors) {
-            submitButton = await page.$(selector);
-            if (submitButton) {
-              console.log(`✅ Found submit button with selector: ${selector}`);
-              break;
-            }
-          }
-
-          if (submitButton) {
-            await submitButton.click();
-            console.log("✅ Submit button clicked");
-          } else {
-            console.log("❌ Submit button not found");
-            // Try pressing Enter as fallback
-            await page.keyboard.press("Enter");
-            console.log("✅ Pressed Enter as fallback");
-          }
-        } catch (error) {
-          console.log(`❌ Error during login form filling: ${error.message}`);
+        } else {
+          console.log("❌ No login link found, proceeding with search...");
         }
-
-        console.log("✅ Login form submitted");
-        await page.waitForTimeout(3000);
-
-        // Debug: Check what page we're on after login
-        const currentUrlAfterLogin = await page.url();
-        console.log(
-          "🔍 Current URL after login attempt:",
-          currentUrlAfterLogin
-        );
-
-        // Debug: Check what elements are available on the page after login
-        const availableElementsAfterLogin = await page.evaluate(() => {
-          const elements = {
-            searchName: document.querySelector("#search-name"),
-            searchLocation: document.querySelector("#search-location"),
-            searchButton: document.querySelector("#wp-search"),
-            allInputs: Array.from(document.querySelectorAll("input")).map(
-              (input) => ({
-                id: input.id,
-                name: input.name,
-                type: input.type,
-                placeholder: input.placeholder,
-              })
-            ),
-            pageTitle: document.title,
-            bodyText: document.body.textContent.substring(0, 200),
-          };
-          return elements;
-        });
-
-        console.log(
-          "🔍 Available elements after login:",
-          availableElementsAfterLogin
-        );
-      } else {
-        console.log("❌ Login link not found, proceeding with search...");
       }
     } else {
       console.log("⏰ Timeout reached, captcha might still be present");
