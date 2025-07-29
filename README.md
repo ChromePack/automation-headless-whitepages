@@ -1,12 +1,11 @@
-# Whitepages Scraper with CapSolver Integration
+# Whitepages Scraper with 2captcha Integration
 
-A powerful web scraping solution for [Whitepages.com](https://www.whitepages.com/) that automatically handles captchas using the CapSolver extension and Puppeteer.
+A powerful web scraping solution for [Whitepages.com](https://www.whitepages.com/) that automatically handles Cloudflare captchas using 2captcha service and Puppeteer.
 
 ## Features
 
 - 🔍 **Multiple Search Types**: Search by name, phone number, or address
-- 🤖 **Automatic Captcha Solving**: Integrated CapSolver extension handles reCAPTCHA and other captchas
-- 🛡️ **Stealth Mode**: Uses puppeteer-extra with stealth plugin to avoid detection
+- 🤖 **Automatic Captcha Solving**: Integrated 2captcha service handles Cloudflare Turnstile captchas
 - 📊 **Comprehensive Data Extraction**: Extracts contact information, addresses, relatives, and more
 - 📝 **Detailed Logging**: Winston-based logging system for debugging and monitoring
 - ⚙️ **Configurable**: Environment-based configuration for easy deployment
@@ -14,8 +13,7 @@ A powerful web scraping solution for [Whitepages.com](https://www.whitepages.com
 ## Prerequisites
 
 - Node.js 16.0.0 or higher
-- CapSolver API key (get one at [capsolver.com](https://www.capsolver.com/))
-- CapSolver Browser Extension (included in this project)
+- 2captcha API key (get one at [2captcha.com](https://2captcha.com/))
 
 ## Installation
 
@@ -31,14 +29,11 @@ A powerful web scraping solution for [Whitepages.com](https://www.whitepages.com
    cp .env.example .env
    ```
 
-   Edit `.env` and add your CapSolver API key:
+   Edit `.env` and add your 2captcha API key:
 
    ```env
-   CAPSOLVER_API_KEY=your_capsolver_api_key_here
+   TWOCAPTCHA_API_KEY=your_2captcha_api_key_here
    ```
-
-3. **Verify CapSolver extension is present:**
-   The `CapSolver.Browser.Extension/` directory should be in the project root.
 
 ## Usage
 
@@ -72,6 +67,22 @@ async function example() {
 }
 
 example();
+```
+
+### Interactive Mode
+
+Run the scraper in interactive mode to manually control searches:
+
+```bash
+yarn interactive
+```
+
+### Test Website Functionality
+
+Test the complete website automation including login and search:
+
+```bash
+yarn test-website
 ```
 
 ### Advanced Usage
@@ -124,19 +135,15 @@ yarn dev
 | `PAGE_TIMEOUT`        | Page operation timeout (ms)         | `30000`                      |
 | `LOG_LEVEL`           | Logging level                       | `info`                       |
 
-### CapSolver Configuration
+### 2captcha Configuration
 
-The application automatically configures the CapSolver extension with your API key. The configuration is located in:
+The application uses 2captcha service to solve Cloudflare Turnstile captchas. The integration includes:
 
-```
-CapSolver.Browser.Extension/assets/config.js
-```
+- Parameter interception via `inject.js`
+- Automatic captcha solving via `src/services/twocaptcha-service.js`
+- Cloudflare Turnstile support
 
-Key settings:
-
-- `enabledForRecaptcha: true` - Enables reCAPTCHA solving
-- `reCaptchaMode: "token"` - Uses token mode for better compatibility
-- `useCapsolver: true` - Enables the CapSolver service
+The API key is configured via the `TWOCAPTCHA_API_KEY` environment variable.
 
 ## Data Structure
 
@@ -175,27 +182,27 @@ Key settings:
 
 ### Common Issues
 
-1. **CapSolver API Key Error**
+1. **2captcha API Key Error**
 
    ```
-   Error: CAPSOLVER_API_KEY environment variable is required
+   Error: TWOCAPTCHA_API_KEY environment variable is required
    ```
 
-   **Solution**: Add your CapSolver API key to the `.env` file.
+   **Solution**: Add your 2captcha API key to the `.env` file.
 
-2. **Extension Not Found**
+2. **Integration Files Not Found**
 
    ```
-   Error: CapSolver config file not found
+   Error: inject.js file not found
    ```
 
-   **Solution**: Ensure the `CapSolver.Browser.Extension/` directory is present in the project root.
+   **Solution**: Ensure the `inject.js` file and `src/services/twocaptcha-service.js` are present in the project.
 
 3. **Captcha Not Solved**
 
-   - Check your CapSolver account balance
+   - Check your 2captcha account balance
    - Verify the API key is correct
-   - Check the extension configuration
+   - Check the console for parameter interception logs
 
 4. **Browser Launch Issues**
    - Ensure you have sufficient system resources
@@ -210,13 +217,18 @@ Key settings:
    LOG_LEVEL=debug
    ```
 
-2. **Run in Non-Headless Mode:**
+2. **Check 2captcha Integration:**
 
-   ```env
-   HEADLESS=false
-   ```
+   - Open browser developer tools
+   - Look for parameter interception logs in the console
+   - Check for any error messages in the console
 
-3. **Check Logs:**
+3. **Verify Captcha Detection:**
+
+   - Monitor the application logs for captcha detection messages
+   - Check if the 2captcha service is properly solving captchas
+
+4. **Check Logs:**
    Logs are stored in the `logs/` directory:
    - `logs/combined.log` - All logs
    - `logs/error.log` - Error logs only
@@ -244,7 +256,7 @@ MIT License - see LICENSE file for details.
 
 For issues related to:
 
-- **CapSolver**: Contact [CapSolver Support](https://www.capsolver.com/)
+- **2captcha**: Contact [2captcha Support](https://2captcha.com/)
 - **This Application**: Open an issue in this repository
 
 ## Changelog
@@ -252,7 +264,7 @@ For issues related to:
 ### v1.0.0
 
 - Initial release
-- CapSolver integration
+- 2captcha integration for Cloudflare captchas
 - Multiple search types
 - Comprehensive data extraction
-- Stealth mode support
+- Parameter interception for stealth mode

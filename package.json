@@ -1,32 +1,30 @@
 {
   "name": "whitepages-scraper",
   "version": "1.0.0",
-  "description": "Whitepages scraper with CapSolver integration for solving captchas",
+  "description": "Whitepages scraper with 2captcha integration for solving Cloudflare captchas",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "demo": "node demo.js",
     "interactive": "node src/index.js --interactive",
     "dev": "node --inspect src/index.js",
     "test": "jest",
     "lint": "eslint src/**/*.js",
-    "setup-test": "node test-setup.js",
     "test-website": "node test-website.js"
   },
   "keywords": [
     "whitepages",
     "scraper",
     "puppeteer",
-    "capsolver",
-    "captcha"
+    "2captcha",
+    "captcha",
+    "cloudflare"
   ],
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "puppeteer": "^21.5.2",
-    "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "@2captcha/captcha-solver": "^1.3.0",
     "dotenv": "^16.3.1",
+    "puppeteer": "^21.5.2",
     "winston": "^3.11.0"
   },
   "devDependencies": {

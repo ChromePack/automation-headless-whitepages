@@ -1,7 +1,6 @@
 require("dotenv").config();
 const BrowserManager = require("./config/browser");
 const WhitepagesScraper = require("./services/whitepages-scraper");
-const CapSolverConfigManager = require("./utils/capsolver-config");
 const logger = require("./config/logger");
 const readline = require("readline");
 
@@ -9,27 +8,17 @@ class WhitepagesScraperApp {
   constructor() {
     this.browserManager = new BrowserManager();
     this.scraper = null;
-    this.configManager = new CapSolverConfigManager();
   }
 
   async initialize() {
     try {
       logger.info("Initializing Whitepages Scraper Application...");
 
-      // Temporarily skip CapSolver configuration since extension is disabled
-      // const apiKey = process.env.CAPSOLVER_API_KEY;
-      // if (!apiKey) {
-      //   throw new Error("CAPSOLVER_API_KEY environment variable is required");
-      // }
-
-      // this.configManager.updateApiKey(apiKey);
-      // this.configManager.validateConfig();
-
       // Initialize browser
       const page = await this.browserManager.initialize();
       this.scraper = new WhitepagesScraper(page);
 
-      logger.info("Application initialized successfully (CapSolver disabled)");
+      logger.info("Application initialized successfully");
     } catch (error) {
       logger.error("Failed to initialize application:", error);
       throw error;

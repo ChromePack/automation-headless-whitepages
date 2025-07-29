@@ -43,9 +43,6 @@ class WhitepagesScraper {
         throw new Error("No valid search criteria provided");
       }
 
-      // Handle potential captcha
-      await this.handleCaptcha();
-
       // Wait for results to load
       await this.waitForResults();
 
@@ -102,70 +99,6 @@ class WhitepagesScraper {
       await this.page.keyboard.press("Enter");
     } else {
       throw new Error("Address input field not found");
-    }
-  }
-
-  async handleCaptcha() {
-    try {
-      logger.info(
-        "Captcha handling temporarily disabled - skipping captcha detection..."
-      );
-
-      // Temporarily disabled captcha handling
-      // await this.page.waitForTimeout(2000);
-
-      // Check for reCAPTCHA - DISABLED
-      // const recaptchaExists = await this.page.$(
-      //   '.g-recaptcha, iframe[src*="recaptcha"], div[class*="recaptcha"]'
-      // );
-      // if (recaptchaExists) {
-      //   logger.info("reCAPTCHA detected, waiting for CapSolver to solve...");
-      //   await this.waitForCaptchaSolution();
-      // }
-
-      // Check for other captcha types - DISABLED
-      // const captchaExists = await this.page.$(
-      //   '.captcha, .captcha-solver, [class*="captcha"]'
-      // );
-      // if (captchaExists) {
-      //   logger.info("Captcha detected, waiting for CapSolver to solve...");
-      //   await this.waitForCaptchaSolution();
-      // }
-
-      logger.info("Captcha handling skipped (temporarily disabled)");
-    } catch (error) {
-      logger.warn("Error in disabled captcha handling:", error);
-      // Continue execution even if captcha handling fails
-    }
-  }
-
-  async waitForCaptchaSolution() {
-    try {
-      // Wait for CapSolver extension to solve the captcha
-      // This might take some time depending on the captcha type
-      await this.page.waitForTimeout(10000);
-
-      // Check if captcha was solved by looking for success indicators
-      const solved = await this.page.evaluate(() => {
-        // Look for common success indicators
-        const successIndicators = [
-          ".g-recaptcha-response",
-          '[data-captcha-solved="true"]',
-          ".captcha-solved",
-        ];
-
-        return successIndicators.some(
-          (selector) => document.querySelector(selector) !== null
-        );
-      });
-
-      if (solved) {
-        logger.info("Captcha appears to be solved");
-      } else {
-        logger.warn("Captcha solution status unclear, continuing...");
-      }
-    } catch (error) {
-      logger.warn("Error waiting for captcha solution:", error);
     }
   }
 
