@@ -1,6 +1,5 @@
 const puppeteer = require("puppeteer-extra");
 const StealthPlugin = require("puppeteer-extra-plugin-stealth");
-const { executablePath } = require("puppeteer");
 const path = require("path");
 const logger = require("./logger");
 
@@ -15,26 +14,30 @@ class BrowserManager {
       __dirname,
       "../../CapSolver.Browser.Extension"
     );
+    this.chromeExecutablePath = "/opt/google/chrome/google-chrome";
   }
 
   async initialize() {
     try {
-      logger.info("Initializing browser with CapSolver extension...");
+      logger.info(
+        "Initializing browser WITHOUT CapSolver extension (temporarily disabled)..."
+      );
 
       this.browser = await puppeteer.launch({
-        headless: process.env.HEADLESS === "true",
+        headless: false, // Keep window open
+        executablePath: this.chromeExecutablePath, // Use Google Chrome executable
         args: [
-          `--disable-extensions-except=${this.extensionPath}`,
-          `--load-extension=${this.extensionPath}`,
+          // Temporarily disabled CapSolver extension
+          // `--disable-extensions-except=${this.extensionPath}`,
+          // `--load-extension=${this.extensionPath}`,
           "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage",
-          "--disable-accelerated-2d-canvas",
-          "--no-first-run",
-          "--no-zygote",
-          "--disable-gpu",
+          // "--disable-setuid-sandbox",
+          // "--disable-dev-shm-usage",
+          // "--disable-accelerated-2d-canvas",
+          // "--no-first-run",
+          // "--no-zygote",
+          // "--disable-gpu",
         ],
-        executablePath: executablePath(),
         defaultViewport: {
           width: 1920,
           height: 1080,
@@ -52,7 +55,9 @@ class BrowserManager {
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
       );
 
-      logger.info("Browser initialized successfully");
+      logger.info(
+        "Browser initialized successfully (CapSolver extension disabled)"
+      );
       return this.page;
     } catch (error) {
       logger.error("Failed to initialize browser:", error);

@@ -107,32 +107,34 @@ class WhitepagesScraper {
 
   async handleCaptcha() {
     try {
-      logger.info("Checking for captcha...");
-
-      // Wait a bit for any captcha to appear
-      await this.page.waitForTimeout(2000);
-
-      // Check for reCAPTCHA
-      const recaptchaExists = await this.page.$(
-        '.g-recaptcha, iframe[src*="recaptcha"], div[class*="recaptcha"]'
+      logger.info(
+        "Captcha handling temporarily disabled - skipping captcha detection..."
       );
-      if (recaptchaExists) {
-        logger.info("reCAPTCHA detected, waiting for CapSolver to solve...");
-        await this.waitForCaptchaSolution();
-      }
 
-      // Check for other captcha types
-      const captchaExists = await this.page.$(
-        '.captcha, .captcha-solver, [class*="captcha"]'
-      );
-      if (captchaExists) {
-        logger.info("Captcha detected, waiting for CapSolver to solve...");
-        await this.waitForCaptchaSolution();
-      }
+      // Temporarily disabled captcha handling
+      // await this.page.waitForTimeout(2000);
 
-      logger.info("No captcha detected or captcha solved");
+      // Check for reCAPTCHA - DISABLED
+      // const recaptchaExists = await this.page.$(
+      //   '.g-recaptcha, iframe[src*="recaptcha"], div[class*="recaptcha"]'
+      // );
+      // if (recaptchaExists) {
+      //   logger.info("reCAPTCHA detected, waiting for CapSolver to solve...");
+      //   await this.waitForCaptchaSolution();
+      // }
+
+      // Check for other captcha types - DISABLED
+      // const captchaExists = await this.page.$(
+      //   '.captcha, .captcha-solver, [class*="captcha"]'
+      // );
+      // if (captchaExists) {
+      //   logger.info("Captcha detected, waiting for CapSolver to solve...");
+      //   await this.waitForCaptchaSolution();
+      // }
+
+      logger.info("Captcha handling skipped (temporarily disabled)");
     } catch (error) {
-      logger.warn("Error handling captcha:", error);
+      logger.warn("Error in disabled captcha handling:", error);
       // Continue execution even if captcha handling fails
     }
   }
