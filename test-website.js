@@ -172,6 +172,105 @@ async function testWebsite() {
             logger.info("✅ Submit button found, clicking...");
             await submitButton.click();
             logger.info("✅ Login submitted");
+
+            // Wait for redirect to home page and then perform search
+            logger.info("⏳ Waiting for redirect to home page...");
+
+            // Wait for URL to change to home page
+            await page.waitForFunction(
+              () => {
+                return (
+                  window.location.href === "https://www.whitepages.com/" ||
+                  window.location.href === "https://www.whitepages.com"
+                );
+              },
+              { timeout: 30000 }
+            );
+
+            logger.info("✅ Redirected to home page");
+
+            // Wait for page to fully load
+            await page.waitForFunction(
+              () => document.readyState === "complete"
+            );
+            await page.waitForTimeout(2000);
+            logger.info("✅ Back on home page, performing search...");
+
+            // Wait for search form to be ready
+            await page.waitForSelector("#search-name", { timeout: 10000 });
+            await page.waitForSelector("#search-location", {
+              timeout: 10000,
+            });
+
+            // Fill name search
+            const nameFilled = await page.evaluate((name) => {
+              const nameInput = document.querySelector("#search-name");
+              if (nameInput) {
+                nameInput.value = name;
+                nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+                nameInput.dispatchEvent(new Event("change", { bubbles: true }));
+                return true;
+              }
+              return false;
+            }, "Adam Nemirow");
+
+            if (nameFilled) {
+              logger.info("✅ Name filled: Adam Nemirow");
+            } else {
+              logger.error("❌ Name input not found");
+            }
+
+            // Fill location search
+            const locationFilled = await page.evaluate((location) => {
+              const locationInput = document.querySelector("#search-location");
+              if (locationInput) {
+                locationInput.value = location;
+                locationInput.dispatchEvent(
+                  new Event("input", { bubbles: true })
+                );
+                locationInput.dispatchEvent(
+                  new Event("change", { bubbles: true })
+                );
+                return true;
+              }
+              return false;
+            }, "Charleston, SC");
+
+            if (locationFilled) {
+              logger.info("✅ Location filled: Charleston, SC");
+
+              // Wait for dropdown to appear and click first suggestion
+              await page.waitForTimeout(2000);
+
+              const suggestionClicked = await page.evaluate(() => {
+                const suggestions = document.querySelector(
+                  ".d-suggestions-wrapper-search li"
+                );
+                if (suggestions) {
+                  suggestions.click();
+                  return true;
+                }
+                return false;
+              });
+
+              if (suggestionClicked) {
+                logger.info("✅ Location suggestion clicked");
+              } else {
+                logger.info("⚠️ No location suggestions found, continuing...");
+              }
+            } else {
+              logger.error("❌ Location input not found");
+            }
+
+            // Click search button
+            const searchButton = await page.$("#wp-search");
+            if (searchButton) {
+              logger.info("✅ Search button found, clicking...");
+              await searchButton.click();
+              logger.info("✅ Search submitted");
+            } else {
+              logger.error("❌ Search button not found");
+            }
           } else {
             logger.error("❌ Submit button not found");
           }
