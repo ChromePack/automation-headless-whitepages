@@ -22,6 +22,10 @@ async function testWebsite() {
       "--no-zygote",
       "--disable-gpu",
     ],
+    defaultViewport: {
+      width: 1440,
+      height: 900,
+    },
   });
 
   try {
