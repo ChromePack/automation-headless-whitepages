@@ -296,6 +296,9 @@ app.post("/api/search", async (req, res) => {
                 () => document.readyState === "complete"
               );
 
+              // Wait for document to be fully loaded before checking for modal
+              await page.waitForTimeout(1500);
+
               // Handle Terms of Service modal
               const tosModal = await page.$(".tos-modal-card");
               if (tosModal) {
@@ -402,7 +405,7 @@ app.post("/api/search", async (req, res) => {
               await page.waitForFunction(
                 () => document.readyState === "complete"
               );
-              await page.waitForTimeout(1000);
+              await page.waitForTimeout(1500);
 
               // Handle Terms of Service modal if it appears
               const tosModal = await page.$(".tos-modal-card");
