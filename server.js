@@ -449,7 +449,7 @@ app.post("/api/search", async (req, res) => {
               // Wait for location suggestions and click if available
               await page.waitForTimeout(2000);
               const navbarSuggestions = await page.$$(
-                '[data-qa-selector="person-location-suggestions"] .location-suggestion'
+                '[data-qa-selector="person-location-suggestions"] > div'
               );
               if (navbarSuggestions.length > 0) {
                 await navbarSuggestions[0].click();
