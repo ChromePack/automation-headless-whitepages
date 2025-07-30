@@ -52,18 +52,20 @@ app.post("/api/search", async (req, res) => {
       });
     }
 
-    // For now, handle only the first person
-    const person = people[0];
-    if (!person.name || !person.location) {
-      return res.status(400).json({
-        error: "Each person must have 'name' and 'location' fields",
-      });
-    }
-
     const credentials = { email, password };
-    const { name, location } = person;
+    const results = [];
 
-    console.log(`🔍 Starting search for: ${name} in ${location}`);
+    console.log(`🔍 Starting search for ${people.length} person(s)`);
+
+    // Validate all people have required fields
+    for (let i = 0; i < people.length; i++) {
+      const person = people[i];
+      if (!person.name || !person.location) {
+        return res.status(400).json({
+          error: `Person at index ${i} must have 'name' and 'location' fields`,
+        });
+      }
+    }
 
     // Launch browser
     const browser = await launch({
@@ -310,193 +312,327 @@ app.post("/api/search", async (req, res) => {
         await page.reload({ waitUntil: "networkidle2" });
       }
 
-      // Fill search form
-      console.log("📝 Filling search form...");
-      const nameInput = await page.$("#search-name");
-      if (nameInput) {
-        await nameInput.type(name);
-        console.log("✅ Name entered");
+      // Process each person in the array
+      for (let i = 0; i < people.length; i++) {
+        const person = people[i];
+        const { name, location } = person;
 
-        // Fill location
-        const locationInput = await page.$("#search-location");
-        if (locationInput) {
-          await locationInput.type(location);
-          console.log("✅ Location entered");
+        console.log(
+          `\n🔍 Processing person ${i + 1}/${
+            people.length
+          }: ${name} in ${location}`
+        );
 
-          // Wait for location suggestions and click if available
-          await page.waitForTimeout(2000);
-          const suggestions = await page.$$(".location-suggestion");
-          if (suggestions.length > 0) {
-            await suggestions[0].click();
-            console.log("✅ Location suggestion clicked");
-          }
-        }
+        if (i === 0) {
+          // First person - use the main search form
+          console.log("📝 Filling search form for first person...");
+          const nameInput = await page.$("#search-name");
+          if (nameInput) {
+            await nameInput.type(name);
+            console.log("✅ Name entered");
 
-        // Click search button
-        const searchButton = await page.$("#wp-search");
-        if (searchButton) {
-          console.log("✅ Search button found, clicking...");
-          await searchButton.click();
-          console.log("✅ Search submitted");
+            // Fill location
+            const locationInput = await page.$("#search-location");
+            if (locationInput) {
+              await locationInput.type(location);
+              console.log("✅ Location entered");
 
-          // Wait for search results
-          await page.waitForFunction(() => document.readyState === "complete");
-
-          // Handle Terms of Service modal
-          const tosModal = await page.$(".tos-modal-card");
-          if (tosModal) {
-            console.log("✅ Terms of Service modal found, handling...");
-            const checkbox = await page.$("#tos-checkbox");
-            if (checkbox) {
-              await checkbox.click();
-              console.log("✅ Terms checkbox checked");
+              // Wait for location suggestions and click if available
+              await page.waitForTimeout(2000);
+              const suggestions = await page.$$(".location-suggestion");
+              if (suggestions.length > 0) {
+                await suggestions[0].click();
+                console.log("✅ Location suggestion clicked");
+              }
             }
-            const continueButton = await page.$(
-              "[data-js-tos-continue-button]"
-            );
-            if (continueButton) {
-              await continueButton.click();
-              console.log("✅ Continue to Results button clicked");
-            }
-          }
 
-          await page.waitForTimeout(2000);
+            // Click search button
+            const searchButton = await page.$("#wp-search");
+            if (searchButton) {
+              console.log("✅ Search button found, clicking...");
+              await searchButton.click();
+              console.log("✅ Search submitted");
 
-          // Click on the first email link
-          console.log("🔍 Looking for email links...");
-          const emailLinks = await page.$$('[data-qa-selector="email-link"]');
+              // Wait for search results
+              await page.waitForFunction(
+                () => document.readyState === "complete"
+              );
 
-          if (emailLinks.length > 0) {
-            console.log(
-              `✅ Found ${emailLinks.length} email link(s), clicking the first one...`
-            );
-            await emailLinks[0].click();
-            console.log("✅ First email link clicked");
-
-            // Wait for the person's result page to load
-            console.log("⏳ Waiting for person's result page to load...");
-            await page.waitForFunction(
-              () => document.readyState === "complete"
-            );
-            await page.waitForTimeout(3000);
-
-            // Extract person data
-            console.log("🔍 Extracting person data...");
-            const personData = await page.evaluate(() => {
-              const data = {
-                state: "",
-                city: "",
-                birthday: "",
-                emails: "",
-                phone_number: "",
-                zip_code: "",
-                county: "",
-                address: "",
-              };
-
-              try {
-                // Extract address information
-                const addressLine1 = document.querySelector(
-                  ".address-line1.address-line--linked"
-                );
-                const addressLine2 = document.querySelector(
-                  ".address-line2.address-line--linked"
-                );
-
-                if (addressLine1 && addressLine2) {
-                  const streetAddress = addressLine1.textContent.trim();
-                  const cityStateZip = addressLine2.textContent.trim();
-
-                  data.address = `${streetAddress}, ${cityStateZip}`;
-
-                  // Parse city, state, and zip from address line 2
-                  const parts = cityStateZip.split(", ");
-                  if (parts.length >= 2) {
-                    data.city = parts[0];
-                    const stateZip = parts[1].split(" ");
-                    if (stateZip.length >= 2) {
-                      data.state = stateZip[0];
-                      data.zip_code = stateZip[1];
-                    }
-                  }
+              // Handle Terms of Service modal
+              const tosModal = await page.$(".tos-modal-card");
+              if (tosModal) {
+                console.log("✅ Terms of Service modal found, handling...");
+                const checkbox = await page.$("#tos-checkbox");
+                if (checkbox) {
+                  await checkbox.click();
+                  console.log("✅ Terms checkbox checked");
                 }
-
-                // Extract birthday information
-                const ageElement = document.querySelector(
-                  ".person-age-desktop .list-item--content--title"
+                const continueButton = await page.$(
+                  "[data-js-tos-continue-button]"
                 );
-                if (ageElement) {
-                  const ageText = ageElement.textContent.trim();
-                  const birthdayMatch = ageText.match(/\(([^)]+)\)/);
-                  if (birthdayMatch) {
-                    const birthdayText = birthdayMatch[1];
-                    const date = new Date(birthdayText);
-                    if (!isNaN(date.getTime())) {
-                      data.birthday = date.toISOString().split("T")[0];
-                    }
-                  }
+                if (continueButton) {
+                  await continueButton.click();
+                  console.log("✅ Continue to Results button clicked");
                 }
-
-                // Extract email
-                const emailElement = document.querySelector(
-                  '[data-qa-selector="email"]'
-                );
-                if (emailElement) {
-                  data.emails = emailElement.textContent.trim();
-                }
-
-                // Extract phone number
-                const phoneElement = document.querySelector(
-                  '[data-qa-selector="phone-number"] a'
-                );
-                if (phoneElement) {
-                  data.phone_number = phoneElement.textContent.trim();
-                }
-
-                // Extract county (if available)
-                const countyElement = document.querySelector(".county-info");
-                if (countyElement) {
-                  data.county = countyElement.textContent.trim();
-                }
-              } catch (error) {
-                console.error("Error extracting data:", error);
               }
 
-              return data;
-            });
+              await page.waitForTimeout(2000);
 
-            console.log("📊 Extracted Person Data:");
-            console.log(JSON.stringify(personData, null, 2));
+              // Click on the first email link
+              console.log("🔍 Looking for email links...");
+              const emailLinks = await page.$$(
+                '[data-qa-selector="email-link"]'
+              );
 
-            await browser.close();
-            return res.json({
-              success: true,
-              data: personData,
-            });
+              if (emailLinks.length > 0) {
+                console.log(
+                  `✅ Found ${emailLinks.length} email link(s), clicking the first one...`
+                );
+                await emailLinks[0].click();
+                console.log("✅ First email link clicked");
+
+                // Wait for the person's result page to load
+                console.log("⏳ Waiting for person's result page to load...");
+                await page.waitForFunction(
+                  () => document.readyState === "complete"
+                );
+                await page.waitForTimeout(3000);
+              } else {
+                console.log("ℹ️ No email links found for first person");
+                results.push({
+                  name: name,
+                  location: location,
+                  error: "No results found",
+                });
+                continue;
+              }
+            } else {
+              console.error("❌ Search button not found");
+              results.push({
+                name: name,
+                location: location,
+                error: "Search functionality not available",
+              });
+              continue;
+            }
           } else {
-            console.log("ℹ️ No email links found on the page");
-            await browser.close();
-            return res.json({
-              success: false,
-              error: "No results found for the search criteria",
+            console.error("❌ Name input not found");
+            results.push({
+              name: name,
+              location: location,
+              error: "Search form not available",
             });
+            continue;
           }
         } else {
-          console.error("❌ Search button not found");
-          await browser.close();
-          return res.status(500).json({
-            success: false,
-            error: "Search functionality not available",
-          });
+          // Subsequent people - use the navbar search form on person result page
+          console.log("📝 Using navbar search form for subsequent person...");
+
+          try {
+            // Find and fill the navbar search form
+            const navbarNameInput = await page.$("#name-input");
+            const navbarLocationInput = await page.$("#location-input");
+            const navbarSearchButton = await page.$(
+              '[data-qa-selector="person-search-button"]'
+            );
+
+            if (navbarNameInput && navbarLocationInput && navbarSearchButton) {
+              // Clear previous inputs
+              await navbarNameInput.click({ clickCount: 3 });
+              await navbarNameInput.type(name);
+              console.log("✅ Navbar name entered");
+
+              await navbarLocationInput.click({ clickCount: 3 });
+              await navbarLocationInput.type(location);
+              console.log("✅ Navbar location entered");
+
+              // Wait for location suggestions and click if available
+              await page.waitForTimeout(2000);
+              const navbarSuggestions = await page.$$(
+                '[data-qa-selector="person-location-suggestions"] .location-suggestion'
+              );
+              if (navbarSuggestions.length > 0) {
+                await navbarSuggestions[0].click();
+                console.log("✅ Navbar location suggestion clicked");
+              }
+
+              // Click search button
+              await navbarSearchButton.click();
+              console.log("✅ Navbar search submitted");
+
+              // Wait for search results
+              await page.waitForFunction(
+                () => document.readyState === "complete"
+              );
+              await page.waitForTimeout(2000);
+
+              // Handle Terms of Service modal if it appears
+              const tosModal = await page.$(".tos-modal-card");
+              if (tosModal) {
+                console.log("✅ Terms of Service modal found, handling...");
+                const checkbox = await page.$("#tos-checkbox");
+                if (checkbox) {
+                  await checkbox.click();
+                  console.log("✅ Terms checkbox checked");
+                }
+                const continueButton = await page.$(
+                  "[data-js-tos-continue-button]"
+                );
+                if (continueButton) {
+                  await continueButton.click();
+                  console.log("✅ Continue to Results button clicked");
+                }
+              }
+
+              // Click on the first email link
+              console.log("🔍 Looking for email links...");
+              const emailLinks = await page.$$(
+                '[data-qa-selector="email-link"]'
+              );
+
+              if (emailLinks.length > 0) {
+                console.log(
+                  `✅ Found ${emailLinks.length} email link(s), clicking the first one...`
+                );
+                await emailLinks[0].click();
+                console.log("✅ First email link clicked");
+
+                // Wait for the person's result page to load
+                console.log("⏳ Waiting for person's result page to load...");
+                await page.waitForFunction(
+                  () => document.readyState === "complete"
+                );
+                await page.waitForTimeout(3000);
+              } else {
+                console.log("ℹ️ No email links found for this person");
+                results.push({
+                  name: name,
+                  location: location,
+                  error: "No results found",
+                });
+                continue;
+              }
+            } else {
+              console.error("❌ Navbar search form elements not found");
+              results.push({
+                name: name,
+                location: location,
+                error: "Navbar search form not available",
+              });
+              continue;
+            }
+          } catch (error) {
+            console.error(`❌ Error searching for ${name}:`, error.message);
+            results.push({
+              name: name,
+              location: location,
+              error: error.message,
+            });
+            continue;
+          }
         }
-      } else {
-        console.error("❌ Name input not found");
-        await browser.close();
-        return res.status(500).json({
-          success: false,
-          error: "Search form not available",
+
+        // Extract person data (same for all people)
+        console.log("🔍 Extracting person data...");
+        const personData = await page.evaluate(() => {
+          const data = {
+            state: "",
+            city: "",
+            birthday: "",
+            emails: "",
+            phone_number: "",
+            zip_code: "",
+            county: "",
+            address: "",
+          };
+
+          try {
+            // Extract address information
+            const addressLine1 = document.querySelector(
+              ".address-line1.address-line--linked"
+            );
+            const addressLine2 = document.querySelector(
+              ".address-line2.address-line--linked"
+            );
+
+            if (addressLine1 && addressLine2) {
+              const streetAddress = addressLine1.textContent.trim();
+              const cityStateZip = addressLine2.textContent.trim();
+
+              data.address = `${streetAddress}, ${cityStateZip}`;
+
+              // Parse city, state, and zip from address line 2
+              const parts = cityStateZip.split(", ");
+              if (parts.length >= 2) {
+                data.city = parts[0];
+                const stateZip = parts[1].split(" ");
+                if (stateZip.length >= 2) {
+                  data.state = stateZip[0];
+                  data.zip_code = stateZip[1];
+                }
+              }
+            }
+
+            // Extract birthday information
+            const ageElement = document.querySelector(
+              ".person-age-desktop .list-item--content--title"
+            );
+            if (ageElement) {
+              const ageText = ageElement.textContent.trim();
+              const birthdayMatch = ageText.match(/\(([^)]+)\)/);
+              if (birthdayMatch) {
+                const birthdayText = birthdayMatch[1];
+                const date = new Date(birthdayText);
+                if (!isNaN(date.getTime())) {
+                  data.birthday = date.toISOString().split("T")[0];
+                }
+              }
+            }
+
+            // Extract email
+            const emailElement = document.querySelector(
+              '[data-qa-selector="email"]'
+            );
+            if (emailElement) {
+              data.emails = emailElement.textContent.trim();
+            }
+
+            // Extract phone number
+            const phoneElement = document.querySelector(
+              '[data-qa-selector="phone-number"] a'
+            );
+            if (phoneElement) {
+              data.phone_number = phoneElement.textContent.trim();
+            }
+
+            // Extract county (if available)
+            const countyElement = document.querySelector(".county-info");
+            if (countyElement) {
+              data.county = countyElement.textContent.trim();
+            }
+          } catch (error) {
+            console.error("Error extracting data:", error);
+          }
+
+          return data;
+        });
+
+        console.log(`📊 Extracted Person Data for ${name}:`);
+        console.log(JSON.stringify(personData, null, 2));
+
+        // Add to results array
+        results.push({
+          name: name,
+          location: location,
+          ...personData,
         });
       }
+
+      await browser.close();
+      return res.json({
+        success: true,
+        data: results,
+      });
     } catch (error) {
       console.error("❌ Error during search:", error);
       await browser.close();
