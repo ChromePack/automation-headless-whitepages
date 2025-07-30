@@ -168,10 +168,10 @@ app.post("/api/search", async (req, res) => {
         loginStatus = await page.evaluate(() => {
           const loggedInContent = document.querySelector(".logged-in-content");
           const loggedOutContent = document.querySelector(
-            ".logged-out-content"
+            ".logged-out-content.hidden"
           );
           return {
-            isLoggedIn: !!loggedInContent,
+            isLoggedIn: !!loggedInContent && !!loggedOutContent,
             loggedInVisible:
               loggedInContent && loggedInContent.offsetParent !== null,
             loggedOutVisible:
@@ -271,13 +271,13 @@ app.post("/api/search", async (req, res) => {
           console.log("📝 Filling login form...");
           try {
             const emailInput = await page.$(
-              'input[type="email"], input[name="email"]'
+              '[data-qa-selector="login-username-input"]'
             );
             const passwordInput = await page.$(
-              'input[type="password"], input[name="password"]'
+              '[data-qa-selector="login-password-input"]'
             );
             const submitButton = await page.$(
-              'button[type="submit"], input[type="submit"]'
+              '[data-qa-selector="login-submit-btn"]'
             );
 
             if (emailInput && passwordInput && submitButton) {
