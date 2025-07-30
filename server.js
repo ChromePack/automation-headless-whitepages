@@ -193,107 +193,45 @@ app.post("/api/search", async (req, res) => {
       console.log("📊 Login status:", loginStatus);
 
       if (!loginStatus.isLoggedIn) {
-        console.log("❌ User is not logged in, checking for login link...");
+        console.log("❌ User is not logged in, redirecting to login page...");
 
-        // Find and click login link
-        const allLoginLinks = await page.evaluate(() => {
-          const links = Array.from(document.querySelectorAll("a"));
-          return links
-            .filter((link) => {
-              const href = link.href || "";
-              const text = link.textContent || "";
-              return (
-                href.includes("/auth/login") ||
-                text.toLowerCase().includes("log in")
-              );
-            })
-            .map((link) => ({
-              href: link.href,
-              text: link.textContent.trim(),
-              classes: link.className,
-              id: link.id,
-            }));
+        // Navigate directly to login page
+        await page.goto("https://www.whitepages.com/auth/login?redirect=%2F", {
+          waitUntil: "networkidle2",
+          timeout: 30000,
         });
 
-        console.log("🔍 Found login-related links:", allLoginLinks);
+        console.log("✅ Redirected to login page");
 
-        if (allLoginLinks.length > 0) {
-          const loginLink = allLoginLinks[0];
-          console.log("✅ Login link found, clicking...");
-          console.log("📝 Login link details:", loginLink);
+        // Wait for login form to load
+        await page.waitForTimeout(2000);
 
-          // Click the login link using a more reliable method
-          try {
-            const loginSelectors = [
-              'a[href="/auth/login?redirect=/"]',
-              'a[href*="/auth/login"]',
-              "a.btn.primary--text.log-in",
-              'a:contains("Log In")',
-            ];
+        // Fill login form
+        console.log("📝 Filling login form...");
+        try {
+          const emailInput = await page.$(
+            '[data-qa-selector="login-username-input"]'
+          );
+          const passwordInput = await page.$(
+            '[data-qa-selector="login-password-input"]'
+          );
+          const submitButton = await page.$(
+            '[data-qa-selector="login-submit-btn"]'
+          );
 
-            let clicked = false;
-            for (const selector of loginSelectors) {
-              try {
-                const element = await page.$(selector);
-                if (element) {
-                  await element.click();
-                  console.log(
-                    `✅ Login link clicked using selector: ${selector}`
-                  );
-                  clicked = true;
-                  break;
-                }
-              } catch (error) {
-                console.log(`⚠️ Failed to click with selector: ${selector}`);
-              }
-            }
+          if (emailInput && passwordInput && submitButton) {
+            await emailInput.type(credentials.email);
+            await passwordInput.type(credentials.password);
+            await submitButton.click();
+            console.log("✅ Login form submitted");
 
-            if (!clicked) {
-              await page.evaluate(() => {
-                const loginLink =
-                  document.querySelector('a[href="/auth/login?redirect=/"]') ||
-                  document.querySelector('a[href*="/auth/login"]') ||
-                  document.querySelector("a.btn.primary--text.log-in");
-                if (loginLink) {
-                  loginLink.click();
-                }
-              });
-              console.log("✅ Login link clicked using evaluate fallback");
-            }
-          } catch (error) {
-            console.log("❌ Error clicking login link:", error.message);
+            // Wait for login to complete
+            await page.waitForTimeout(1500);
+          } else {
+            console.log("⚠️ Login form elements not found");
           }
-
-          // Wait for login form to load
-          await page.waitForTimeout(2000);
-
-          // Fill login form
-          console.log("📝 Filling login form...");
-          try {
-            const emailInput = await page.$(
-              '[data-qa-selector="login-username-input"]'
-            );
-            const passwordInput = await page.$(
-              '[data-qa-selector="login-password-input"]'
-            );
-            const submitButton = await page.$(
-              '[data-qa-selector="login-submit-btn"]'
-            );
-
-            if (emailInput && passwordInput && submitButton) {
-              await emailInput.type(credentials.email);
-              await passwordInput.type(credentials.password);
-              await submitButton.click();
-              console.log("✅ Login form submitted");
-
-              // Wait for login to complete
-              await page.waitForTimeout(1500);
-            } else {
-              console.log("⚠️ Login form elements not found");
-            }
-          } catch (error) {
-            console.log("❌ Error during login:", error.message);
-          }
+        } catch (error) {
+          console.log("❌ Error during login:", error.message);
         }
       }
 
