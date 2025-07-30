@@ -1,246 +1,220 @@
-# Whitepages Scraper with 2captcha Integration
+# Whitepages API
 
-A powerful web scraping solution for [Whitepages.com](https://www.whitepages.com/) that automatically handles Cloudflare captchas using 2captcha service and Puppeteer.
+A headless browser automation API for searching and extracting person data from Whitepages using Puppeteer and 2captcha integration.
 
-## Features
+## 🚀 Features
 
-- 🔍 **Multiple Search Types**: Search by name, phone number, or address
-- 🤖 **Automatic Captcha Solving**: Integrated 2captcha service handles Cloudflare Turnstile captchas
-- 📊 **Comprehensive Data Extraction**: Extracts contact information, addresses, relatives, and more
-- 📝 **Detailed Logging**: Winston-based logging system for debugging and monitoring
-- ⚙️ **Configurable**: Environment-based configuration for easy deployment
+- **Automated Login**: Handles Whitepages login with provided credentials
+- **Captcha Solving**: Integrates with 2captcha for automatic Cloudflare captcha solving
+- **Person Search**: Search for people by name and location
+- **Data Extraction**: Extract comprehensive person information including:
+  - Address and location details
+  - Contact information (email, phone)
+  - Personal information (birthday, age)
+  - Geographic data (city, state, zip code, county)
 
-## Prerequisites
+## 📋 Requirements
 
-- Node.js 16.0.0 or higher
-- 2captcha API key (get one at [2captcha.com](https://2captcha.com/))
+- Node.js 16+
+- Yarn package manager
+- 2captcha API key
+- Whitepages account credentials
 
-## Installation
+## 🛠️ Installation
 
-1. **Clone the repository and install dependencies:**
+1. **Clone the repository:**
+
+   ```bash
+   git clone <repository-url>
+   cd whitepagesapi-headless
+   ```
+
+2. **Install dependencies:**
 
    ```bash
    yarn install
    ```
 
-2. **Set up environment variables:**
-
-   ```bash
-   cp .env.example .env
-   ```
-
-   Edit `.env` and add your 2captcha API key:
-
+3. **Set up environment variables:**
+   Create a `.env` file in the root directory:
    ```env
    TWOCAPTCHA_API_KEY=your_2captcha_api_key_here
+   PORT=3000
    ```
 
-## Usage
+## 🚀 Usage
 
-### Basic Usage
-
-```javascript
-const WhitepagesScraperApp = require("./src/index");
-
-async function example() {
-  const app = new WhitepagesScraperApp();
-
-  try {
-    await app.initialize();
-
-    // Search by name
-    const nameResults = await app.searchByName("John Smith");
-    console.log("Results:", nameResults);
-
-    // Search by phone
-    const phoneResults = await app.searchByPhone("555-123-4567");
-    console.log("Results:", phoneResults);
-
-    // Search by address
-    const addressResults = await app.searchByAddress(
-      "123 Main St, New York, NY"
-    );
-    console.log("Results:", addressResults);
-  } finally {
-    await app.close();
-  }
-}
-
-example();
-```
-
-### Interactive Mode
-
-Run the scraper in interactive mode to manually control searches:
+### Starting the Server
 
 ```bash
-yarn interactive
+# Development mode with auto-restart
+yarn dev
+
+# Production mode
+yarn start
 ```
 
-### Test Website Functionality
+The server will start on `http://localhost:3000` (or the port specified in your `.env` file).
 
-Test the complete website automation including login and search:
+### API Endpoints
+
+#### Health Check
+
+```http
+GET /health
+```
+
+**Response:**
+
+```json
+{
+  "status": "OK",
+  "timestamp": "2024-01-15T10:30:00.000Z"
+}
+```
+
+#### Person Search
+
+```http
+POST /api/search
+```
+
+**Headers:**
+
+```
+email: your_email@example.com
+password: your_password
+```
+
+**Request Body:**
+
+```json
+[
+  {
+    "name": "John Doe",
+    "location": "New York, NY"
+  }
+]
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "state": "CA",
+    "city": "Los Angeles",
+    "birthday": "1985-05-15",
+    "emails": "john.doe@example.com",
+    "phone_number": "(555) 123-4567",
+    "zip_code": "90210",
+    "county": "Los Angeles County",
+    "address": "123 Main Street, Los Angeles, CA 90210"
+  }
+}
+```
+
+### Error Responses
+
+```json
+{
+  "success": false,
+  "error": "Error message description"
+}
+```
+
+## 🔧 Configuration
+
+### Environment Variables
+
+| Variable             | Description           | Required | Default |
+| -------------------- | --------------------- | -------- | ------- |
+| `TWOCAPTCHA_API_KEY` | Your 2captcha API key | Yes      | -       |
+| `PORT`               | Server port           | No       | 3000    |
+
+### Rate Limiting
+
+The API includes rate limiting to prevent abuse:
+
+- **Limit**: 10 requests per 15 minutes per IP
+- **Response**: 429 status code with error message
+
+## 🛡️ Security Features
+
+- **Helmet.js**: Security headers
+- **CORS**: Cross-origin resource sharing
+- **Rate Limiting**: Prevents abuse
+- **Input Validation**: Validates all incoming requests
+- **Error Handling**: Comprehensive error handling
+
+## 📊 Data Extraction
+
+The API extracts the following information from Whitepages person results:
+
+| Field          | Description             | Example                     |
+| -------------- | ----------------------- | --------------------------- |
+| `state`        | State abbreviation      | "CA"                        |
+| `city`         | City name               | "Los Angeles"               |
+| `birthday`     | Birth date (YYYY-MM-DD) | "1985-05-15"                |
+| `emails`       | Email address           | "john.doe@example.com"      |
+| `phone_number` | Phone number            | "(555) 123-4567"            |
+| `zip_code`     | ZIP code                | "90210"                     |
+| `county`       | County name             | "Los Angeles County"        |
+| `address`      | Full address            | "123 Main St, LA, CA 90210" |
+
+## 🔍 Browser Automation
+
+The API uses Puppeteer for browser automation with the following features:
+
+- **Headless Mode**: Runs without GUI for server deployment
+- **Persistent Sessions**: Saves login sessions to avoid repeated logins
+- **Captcha Handling**: Automatic Cloudflare captcha solving
+- **Error Recovery**: Robust error handling and recovery
+
+## 🚨 Important Notes
+
+1. **Rate Limiting**: Respect Whitepages' terms of service and rate limits
+2. **Captcha Costs**: 2captcha API calls incur costs
+3. **Session Management**: Login sessions are cached to improve performance
+4. **Error Handling**: The API includes comprehensive error handling for various scenarios
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+1. **Captcha Solving Fails**
+
+   - Check your 2captcha API key
+   - Ensure sufficient balance in your 2captcha account
+   - Verify the API key is correctly set in `.env`
+
+2. **Login Fails**
+
+   - Verify your Whitepages credentials
+   - Check if the account is active and not locked
+   - Ensure the email/password format is correct
+
+3. **No Results Found**
+   - Try different location formats
+   - Verify the person's name spelling
+   - Check if the person has a public profile on Whitepages
+
+### Debug Mode
+
+For debugging, you can run the original test script:
 
 ```bash
 yarn test-website
 ```
 
-### Advanced Usage
+This will open a browser window where you can see the automation in action.
 
-```javascript
-const WhitepagesScraperApp = require("./src/index");
+## 📝 License
 
-async function advancedExample() {
-  const app = new WhitepagesScraperApp();
+MIT License - see LICENSE file for details.
 
-  try {
-    await app.initialize();
-
-    // Search for a person
-    const results = await app.searchByName("Jane Doe");
-
-    if (results.length > 0) {
-      // Get detailed information for the first result
-      const personUrl = results[0].url; // Assuming URL is available
-      const details = await app.getPersonDetails(personUrl);
-
-      console.log("Detailed Information:", details);
-    }
-  } finally {
-    await app.close();
-  }
-}
-```
-
-### Running the Application
-
-```bash
-# Start the application
-yarn start
-
-# Run in development mode with debugging
-yarn dev
-```
-
-## Configuration
-
-### Environment Variables
-
-| Variable              | Description                         | Default                      |
-| --------------------- | ----------------------------------- | ---------------------------- |
-| `CAPSOLVER_API_KEY`   | Your CapSolver API key              | Required                     |
-| `WHITEPAGES_BASE_URL` | Whitepages base URL                 | `https://www.whitepages.com` |
-| `HEADLESS`            | Run browser in headless mode        | `false`                      |
-| `BROWSER_TIMEOUT`     | Browser initialization timeout (ms) | `30000`                      |
-| `PAGE_TIMEOUT`        | Page operation timeout (ms)         | `30000`                      |
-| `LOG_LEVEL`           | Logging level                       | `info`                       |
-
-### 2captcha Configuration
-
-The application uses 2captcha service to solve Cloudflare Turnstile captchas. The integration includes:
-
-- Parameter interception via `inject.js`
-- Automatic captcha solving via `src/services/twocaptcha-service.js`
-- Cloudflare Turnstile support
-
-The API key is configured via the `TWOCAPTCHA_API_KEY` environment variable.
-
-## Data Structure
-
-### Search Results
-
-```javascript
-{
-  index: 0,
-  name: "John Smith",
-  phone: "555-123-4567",
-  address: "123 Main St, New York, NY",
-  email: "john.smith@email.com",
-  age: "35",
-  relatives: ["Jane Smith", "Mike Smith"],
-  rawText: "Full text content of the result"
-}
-```
-
-### Person Details
-
-```javascript
-{
-  name: "John Smith",
-  phoneNumbers: ["555-123-4567", "555-987-6543"],
-  addresses: ["123 Main St, New York, NY", "456 Oak Ave, Los Angeles, CA"],
-  emails: ["john.smith@email.com"],
-  age: "35",
-  relatives: ["Jane Smith", "Mike Smith"],
-  backgroundInfo: {},
-  propertyInfo: {},
-  rawText: "Full page content"
-}
-```
-
-## Troubleshooting
-
-### Common Issues
-
-1. **2captcha API Key Error**
-
-   ```
-   Error: TWOCAPTCHA_API_KEY environment variable is required
-   ```
-
-   **Solution**: Add your 2captcha API key to the `.env` file.
-
-2. **Integration Files Not Found**
-
-   ```
-   Error: inject.js file not found
-   ```
-
-   **Solution**: Ensure the `inject.js` file and `src/services/twocaptcha-service.js` are present in the project.
-
-3. **Captcha Not Solved**
-
-   - Check your 2captcha account balance
-   - Verify the API key is correct
-   - Check the console for parameter interception logs
-
-4. **Browser Launch Issues**
-   - Ensure you have sufficient system resources
-   - Try running in headless mode: `HEADLESS=true`
-   - Check if Chrome/Chromium is installed
-
-### Debugging
-
-1. **Enable Debug Logging:**
-
-   ```env
-   LOG_LEVEL=debug
-   ```
-
-2. **Check 2captcha Integration:**
-
-   - Open browser developer tools
-   - Look for parameter interception logs in the console
-   - Check for any error messages in the console
-
-3. **Verify Captcha Detection:**
-
-   - Monitor the application logs for captcha detection messages
-   - Check if the 2captcha service is properly solving captchas
-
-4. **Check Logs:**
-   Logs are stored in the `logs/` directory:
-   - `logs/combined.log` - All logs
-   - `logs/error.log` - Error logs only
-
-## Legal and Ethical Considerations
-
-- **Respect Terms of Service**: Ensure compliance with Whitepages' terms of service
-- **Rate Limiting**: Implement appropriate delays between requests
-- **Data Privacy**: Handle personal information responsibly
-- **Fair Use**: Use the scraper for legitimate purposes only
-
-## Contributing
+## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
@@ -248,23 +222,11 @@ The API key is configured via the `TWOCAPTCHA_API_KEY` environment variable.
 4. Add tests if applicable
 5. Submit a pull request
 
-## License
+## 📞 Support
 
-MIT License - see LICENSE file for details.
+For issues and questions:
 
-## Support
-
-For issues related to:
-
-- **2captcha**: Contact [2captcha Support](https://2captcha.com/)
-- **This Application**: Open an issue in this repository
-
-## Changelog
-
-### v1.0.0
-
-- Initial release
-- 2captcha integration for Cloudflare captchas
-- Multiple search types
-- Comprehensive data extraction
-- Parameter interception for stealth mode
+- Check the troubleshooting section
+- Review the error logs
+- Ensure all requirements are met
+- Verify your API keys and credentials
