@@ -521,6 +521,101 @@ async function testWebsite() {
           );
           await emailLinks[0].click();
           console.log("✅ First email link clicked");
+
+          // Wait for the person's result page to load
+          console.log("⏳ Waiting for person's result page to load...");
+          await page.waitForFunction(() => document.readyState === "complete");
+          await page.waitForTimeout(3000); // Additional wait for dynamic content
+
+          // Extract person data
+          console.log("🔍 Extracting person data...");
+          const personData = await page.evaluate(() => {
+            const data = {
+              state: "",
+              city: "",
+              birthday: "",
+              emails: "",
+              phone_number: "",
+              zip_code: "",
+              county: "",
+              address: "",
+            };
+
+            try {
+              // Extract address information
+              const addressLine1 = document.querySelector(
+                ".address-line1.address-line--linked"
+              );
+              const addressLine2 = document.querySelector(
+                ".address-line2.address-line--linked"
+              );
+
+              if (addressLine1 && addressLine2) {
+                const streetAddress = addressLine1.textContent.trim();
+                const cityStateZip = addressLine2.textContent.trim();
+
+                data.address = `${streetAddress}, ${cityStateZip}`;
+
+                // Parse city, state, and zip from address line 2
+                const parts = cityStateZip.split(", ");
+                if (parts.length >= 2) {
+                  data.city = parts[0];
+                  const stateZip = parts[1].split(" ");
+                  if (stateZip.length >= 2) {
+                    data.state = stateZip[0];
+                    data.zip_code = stateZip[1];
+                  }
+                }
+              }
+
+              // Extract birthday information
+              const ageElement = document.querySelector(
+                ".person-age-desktop .list-item--content--title"
+              );
+              if (ageElement) {
+                const ageText = ageElement.textContent.trim();
+                // Extract birthday from text like "52 years old (May 13, 1973)"
+                const birthdayMatch = ageText.match(/\(([^)]+)\)/);
+                if (birthdayMatch) {
+                  const birthdayText = birthdayMatch[1];
+                  // Convert to YYYY-MM-DD format
+                  const date = new Date(birthdayText);
+                  if (!isNaN(date.getTime())) {
+                    data.birthday = date.toISOString().split("T")[0];
+                  }
+                }
+              }
+
+              // Extract email
+              const emailElement = document.querySelector(
+                '[data-qa-selector="email"]'
+              );
+              if (emailElement) {
+                data.emails = emailElement.textContent.trim();
+              }
+
+              // Extract phone number
+              const phoneElement = document.querySelector(
+                '[data-qa-selector="phone-number"] a'
+              );
+              if (phoneElement) {
+                data.phone_number = phoneElement.textContent.trim();
+              }
+
+              // Extract county (if available)
+              const countyElement = document.querySelector(".county-info");
+              if (countyElement) {
+                data.county = countyElement.textContent.trim();
+              }
+            } catch (error) {
+              console.error("Error extracting data:", error);
+            }
+
+            return data;
+          });
+
+          console.log("📊 Extracted Person Data:");
+          console.log(JSON.stringify(personData, null, 2));
         } else {
           console.log("ℹ️ No email links found on the page");
         }
