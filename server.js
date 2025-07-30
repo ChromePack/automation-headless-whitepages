@@ -133,7 +133,7 @@ app.post("/api/search", async (req, res) => {
       console.log("⏳ Checking for captcha...");
       let captchaSolved = false;
       let attempts = 0;
-      const maxAttempts = 60; // Increased to 60 seconds to allow for captcha solving
+      const maxAttempts = 30; // Reduced to 30 seconds for faster captcha checking
 
       while (attempts < maxAttempts && !captchaSolved) {
         try {
@@ -287,7 +287,7 @@ app.post("/api/search", async (req, res) => {
               console.log("✅ Login form submitted");
 
               // Wait for login to complete
-              await page.waitForTimeout(3000);
+              await page.waitForTimeout(1500);
             } else {
               console.log("⚠️ Login form elements not found");
             }
@@ -338,7 +338,7 @@ app.post("/api/search", async (req, res) => {
               console.log("✅ Location entered");
 
               // Wait for location suggestions and click if available
-              await page.waitForTimeout(2000);
+              await page.waitForTimeout(1000);
               const suggestions = await page.$$(".location-suggestion");
               if (suggestions.length > 0) {
                 await suggestions[0].click();
@@ -376,7 +376,7 @@ app.post("/api/search", async (req, res) => {
                 }
               }
 
-              await page.waitForTimeout(2000);
+              await page.waitForTimeout(1000);
 
               // Click on the first email link
               console.log("🔍 Looking for email links...");
@@ -396,7 +396,7 @@ app.post("/api/search", async (req, res) => {
                 await page.waitForFunction(
                   () => document.readyState === "complete"
                 );
-                await page.waitForTimeout(3000);
+                await page.waitForTimeout(2000);
               } else {
                 console.log("ℹ️ No email links found for first person");
                 results.push({
@@ -447,7 +447,7 @@ app.post("/api/search", async (req, res) => {
               console.log("✅ Navbar location entered");
 
               // Wait for location suggestions and click if available
-              await page.waitForTimeout(2000);
+              await page.waitForTimeout(1000);
               const navbarSuggestions = await page.$$(
                 '[data-qa-selector="person-location-suggestions"] > div'
               );
@@ -464,7 +464,7 @@ app.post("/api/search", async (req, res) => {
               await page.waitForFunction(
                 () => document.readyState === "complete"
               );
-              await page.waitForTimeout(2000);
+              await page.waitForTimeout(1000);
 
               // Handle Terms of Service modal if it appears
               const tosModal = await page.$(".tos-modal-card");
@@ -502,7 +502,7 @@ app.post("/api/search", async (req, res) => {
                 await page.waitForFunction(
                   () => document.readyState === "complete"
                 );
-                await page.waitForTimeout(3000);
+                await page.waitForTimeout(2000);
               } else {
                 console.log("ℹ️ No email links found for this person");
                 results.push({
