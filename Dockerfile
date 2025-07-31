@@ -1,41 +1,21 @@
-FROM node:18
+FROM ghcr.io/puppeteer/puppeteer:21.6.1
 
-# Install system dependencies including Xvfb and Chrome
-RUN apt-get update && apt-get install -y \
-    xvfb \
-    chromium \
-    fonts-liberation \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libdrm2 \
-    libgtk-3-0 \
-    libnspr4 \
-    libnss3 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxrandr2 \
-    libxss1 \
-    libxtst6 \
-    xdg-utils \
-    && rm -rf /var/lib/apt/lists/*
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
 
-# Set working directory
-WORKDIR /app
+WORKDIR /usr/src/app
 
 # Copy package files
-COPY package*.json ./
+COPY package*.json yarn.lock ./
 
-# Install dependencies
-RUN npm install
+# Install dependencies using yarn
+RUN yarn install --frozen-lockfile
 
 # Copy source code
 COPY . .
 
-# Expose port
+# Expose port (Railway will override this with process.env.PORT)
 EXPOSE 3000
 
-# Set environment variable for virtual display
-ENV DISPLAY=:99
-
-# Start Xvfb and run the application
-CMD Xvfb :99 -screen 0 1920x1080x24 & node server.js 
+# Start the application
+CMD [ "yarn", "start" ] 

@@ -70,6 +70,10 @@ app.post("/api/search", async (req, res) => {
     // Launch browser optimized for server deployment
     const browser = await launch({
       headless: false, // Use non-headless mode for better reliability
+      executablePath:
+        process.env.NODE_ENV === "production"
+          ? process.env.PUPPETEER_EXECUTABLE_PATH
+          : puppeteer.executablePath(),
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
