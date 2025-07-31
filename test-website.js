@@ -13,10 +13,6 @@ async function testWebsite() {
   const browser = await launch({
     headless: false,
     devtools: true,
-    executablePath:
-      process.env.NODE_ENV === "production"
-        ? process.env.PUPPETEER_EXECUTABLE_PATH
-        : puppeteer.executablePath(),
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",

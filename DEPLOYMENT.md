@@ -2,8 +2,6 @@
 
 This guide explains how to deploy the Whitepages API with non-headless mode using virtual display.
 
-> **🚀 For Railway Deployment**: See [RAILWAY_DEPLOYMENT.md](./RAILWAY_DEPLOYMENT.md) for optimized Railway deployment using Docker.
-
 ## 📋 Prerequisites
 
 ### For Ubuntu/Debian:

@@ -7,6 +7,7 @@ class BrowserManager {
   constructor() {
     this.browser = null;
     this.page = null;
+    this.chromeExecutablePath = "/opt/google/chrome/google-chrome";
   }
 
   async initialize() {
@@ -15,10 +16,7 @@ class BrowserManager {
 
       this.browser = await puppeteer.launch({
         headless: false, // Keep window open
-        executablePath:
-          process.env.NODE_ENV === "production"
-            ? process.env.PUPPETEER_EXECUTABLE_PATH
-            : puppeteer.executablePath(),
+        executablePath: this.chromeExecutablePath, // Use Google Chrome executable
         args: [
           "--no-sandbox",
           "--disable-setuid-sandbox",
