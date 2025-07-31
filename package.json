@@ -5,6 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "start:prod": "./start-server.sh",
     "dev": "nodemon server.js",
     "test-website": "node test-website.js"
   },

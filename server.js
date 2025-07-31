@@ -67,10 +67,9 @@ app.post("/api/search", async (req, res) => {
       }
     }
 
-    // Launch browser
+    // Launch browser optimized for server deployment
     const browser = await launch({
-      headless: false, // Make browser visible for debugging
-      devtools: true, // Open developer tools
+      headless: false, // Use non-headless mode for better reliability
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
@@ -81,8 +80,8 @@ app.post("/api/search", async (req, res) => {
         "--disable-gpu",
       ],
       defaultViewport: {
-        width: 1440,
-        height: 900,
+        width: 1920,
+        height: 1080,
       },
       userDataDir: "./browser-data",
     });
