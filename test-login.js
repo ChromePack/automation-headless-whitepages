@@ -87,8 +87,8 @@ async function testLogin() {
     // Wait for page to load
     await page.waitForFunction(() => document.readyState === "complete");
 
-    // Handle captcha with better timing
-    console.log("⏳ Checking for captcha...");
+    // Handle captcha on homepage
+    console.log("⏳ Checking for captcha on homepage...");
     let attempts = 0;
     const maxAttempts = 30;
 
@@ -103,10 +103,12 @@ async function testLogin() {
         if (!captchaPresent) {
           await page.waitForTimeout(1000);
           captchaSolved = true;
-          console.log("✅ Captcha solved or not present, proceeding...");
+          console.log(
+            "✅ Captcha solved or not present on homepage, proceeding..."
+          );
         } else {
           console.log(
-            `⏳ Waiting for captcha to be solved... (attempt ${
+            `⏳ Waiting for captcha to be solved on homepage... (attempt ${
               attempts + 1
             }/${maxAttempts})`
           );
@@ -114,14 +116,19 @@ async function testLogin() {
           attempts++;
         }
       } catch (error) {
-        console.log("⚠️ Error checking captcha, retrying...", error.message);
+        console.log(
+          "⚠️ Error checking captcha on homepage, retrying...",
+          error.message
+        );
         await page.waitForTimeout(1000);
         attempts++;
       }
     }
 
     if (!captchaSolved) {
-      console.log("⚠️ Captcha solving timeout, proceeding anyway...");
+      console.log(
+        "⚠️ Captcha solving timeout on homepage, proceeding anyway..."
+      );
     }
 
     // Wait a bit more for any pending operations
@@ -170,6 +177,56 @@ async function testLogin() {
 
       // Wait for login form to load
       await page.waitForTimeout(3000);
+
+      // Reset captcha solved flag for login page
+      captchaSolved = false;
+
+      // Handle captcha on login page specifically
+      console.log("⏳ Checking for captcha on login page...");
+      attempts = 0;
+      const loginPageMaxAttempts = 30;
+
+      while (attempts < loginPageMaxAttempts && !captchaSolved) {
+        try {
+          const captchaElement = await page.$(
+            'input[name="cf-turnstile-response"]'
+          );
+          const captchaContainer = await page.$('div[id^="RInW4"]');
+          const captchaPresent = !!(captchaElement || captchaContainer);
+
+          if (!captchaPresent) {
+            await page.waitForTimeout(1000);
+            captchaSolved = true;
+            console.log(
+              "✅ Captcha solved or not present on login page, proceeding..."
+            );
+          } else {
+            console.log(
+              `⏳ Waiting for captcha to be solved on login page... (attempt ${
+                attempts + 1
+              }/${loginPageMaxAttempts})`
+            );
+            await page.waitForTimeout(1000);
+            attempts++;
+          }
+        } catch (error) {
+          console.log(
+            "⚠️ Error checking captcha on login page, retrying...",
+            error.message
+          );
+          await page.waitForTimeout(1000);
+          attempts++;
+        }
+      }
+
+      if (!captchaSolved) {
+        console.log(
+          "⚠️ Captcha solving timeout on login page, proceeding anyway..."
+        );
+      }
+
+      // Wait a bit more for any pending operations
+      await page.waitForTimeout(2000);
 
       // Fill login form
       console.log("📝 Filling login form...");
