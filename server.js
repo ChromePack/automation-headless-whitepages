@@ -31,6 +31,57 @@ app.get("/health", (req, res) => {
   res.json({ status: "OK", timestamp: new Date().toISOString() });
 });
 
+// Reusable function to handle captcha on any page
+async function handleCaptcha(page, pageName = "current page") {
+  console.log(`⏳ Checking for captcha on ${pageName}...`);
+  let attempts = 0;
+  const maxAttempts = 30;
+  let captchaSolved = false;
+
+  while (attempts < maxAttempts && !captchaSolved) {
+    try {
+      const captchaElement = await page.$(
+        'input[name="cf-turnstile-response"]'
+      );
+      const captchaContainer = await page.$('div[id^="RInW4"]');
+      const captchaPresent = !!(captchaElement || captchaContainer);
+
+      if (!captchaPresent) {
+        await page.waitForTimeout(1000);
+        captchaSolved = true;
+        console.log(
+          `✅ Captcha solved or not present on ${pageName}, proceeding...`
+        );
+      } else {
+        console.log(
+          `⏳ Waiting for captcha to be solved on ${pageName}... (attempt ${
+            attempts + 1
+          }/${maxAttempts})`
+        );
+        await page.waitForTimeout(1000);
+        attempts++;
+      }
+    } catch (error) {
+      console.log(
+        `⚠️ Error checking captcha on ${pageName}, retrying...`,
+        error.message
+      );
+      await page.waitForTimeout(1000);
+      attempts++;
+    }
+  }
+
+  if (!captchaSolved) {
+    console.log(
+      `⚠️ Captcha solving timeout on ${pageName}, proceeding anyway...`
+    );
+  }
+
+  // Wait a bit more for any pending operations
+  await page.waitForTimeout(2000);
+  return captchaSolved;
+}
+
 // Main search endpoint
 app.post("/api/search", async (req, res) => {
   try {
@@ -137,51 +188,7 @@ app.post("/api/search", async (req, res) => {
       await page.waitForFunction(() => document.readyState === "complete");
 
       // Handle captcha on homepage
-      console.log("⏳ Checking for captcha on homepage...");
-      let attempts = 0;
-      const maxAttempts = 30; // Reduced to 30 seconds for faster captcha checking
-
-      while (attempts < maxAttempts && !captchaSolved) {
-        try {
-          const captchaElement = await page.$(
-            'input[name="cf-turnstile-response"]'
-          );
-          const captchaContainer = await page.$('div[id^="RInW4"]');
-          const captchaPresent = !!(captchaElement || captchaContainer);
-
-          if (!captchaPresent) {
-            await page.waitForTimeout(1000);
-            captchaSolved = true;
-            console.log(
-              "✅ Captcha solved or not present on homepage, proceeding..."
-            );
-          } else {
-            console.log(
-              `⏳ Waiting for captcha to be solved on homepage... (attempt ${
-                attempts + 1
-              }/${maxAttempts})`
-            );
-            await page.waitForTimeout(1000);
-            attempts++;
-          }
-        } catch (error) {
-          console.log(
-            "⚠️ Error checking captcha on homepage, retrying...",
-            error.message
-          );
-          await page.waitForTimeout(1000);
-          attempts++;
-        }
-      }
-
-      if (!captchaSolved) {
-        console.log(
-          "⚠️ Captcha solving timeout on homepage, proceeding anyway..."
-        );
-      }
-
-      // Wait a bit more for any pending operations
-      await page.waitForTimeout(2000);
+      await handleCaptcha(page, "homepage");
 
       // Check login status and login if needed
       let loginStatus;
@@ -227,55 +234,8 @@ app.post("/api/search", async (req, res) => {
         // Wait for login form to load
         await page.waitForTimeout(3000);
 
-        // Reset captcha solved flag for login page
-        captchaSolved = false;
-
-        // Handle captcha on login page specifically
-        console.log("⏳ Checking for captcha on login page...");
-        attempts = 0;
-        const loginPageMaxAttempts = 30;
-
-        while (attempts < loginPageMaxAttempts && !captchaSolved) {
-          try {
-            const captchaElement = await page.$(
-              'input[name="cf-turnstile-response"]'
-            );
-            const captchaContainer = await page.$('div[id^="RInW4"]');
-            const captchaPresent = !!(captchaElement || captchaContainer);
-
-            if (!captchaPresent) {
-              await page.waitForTimeout(1000);
-              captchaSolved = true;
-              console.log(
-                "✅ Captcha solved or not present on login page, proceeding..."
-              );
-            } else {
-              console.log(
-                `⏳ Waiting for captcha to be solved on login page... (attempt ${
-                  attempts + 1
-                }/${loginPageMaxAttempts})`
-              );
-              await page.waitForTimeout(1000);
-              attempts++;
-            }
-          } catch (error) {
-            console.log(
-              "⚠️ Error checking captcha on login page, retrying...",
-              error.message
-            );
-            await page.waitForTimeout(1000);
-            attempts++;
-          }
-        }
-
-        if (!captchaSolved) {
-          console.log(
-            "⚠️ Captcha solving timeout on login page, proceeding anyway..."
-          );
-        }
-
-        // Wait a bit more for any pending operations
-        await page.waitForTimeout(2000);
+        // Handle captcha on login page
+        await handleCaptcha(page, "login page");
 
         // Fill login form
         console.log("📝 Filling login form...");
@@ -406,6 +366,9 @@ app.post("/api/search", async (req, res) => {
               // Wait for document to be fully loaded before checking for modal
               await page.waitForTimeout(1500);
 
+              // Handle captcha on search results page
+              await handleCaptcha(page, "search results page");
+
               // Handle Terms of Service modal
               const tosModal = await page.$(".tos-modal-card");
               if (tosModal) {
@@ -445,6 +408,9 @@ app.post("/api/search", async (req, res) => {
                   () => document.readyState === "complete"
                 );
                 await page.waitForTimeout(2000);
+
+                // Handle captcha on person result page
+                await handleCaptcha(page, "person result page");
               } else {
                 console.log("ℹ️ No email links found for first person");
                 results.push({
@@ -514,6 +480,9 @@ app.post("/api/search", async (req, res) => {
               );
               await page.waitForTimeout(1500);
 
+              // Handle captcha on search results page
+              await handleCaptcha(page, "search results page");
+
               // Handle Terms of Service modal if it appears
               const tosModal = await page.$(".tos-modal-card");
               if (tosModal) {
@@ -551,6 +520,9 @@ app.post("/api/search", async (req, res) => {
                   () => document.readyState === "complete"
                 );
                 await page.waitForTimeout(2000);
+
+                // Handle captcha on person result page
+                await handleCaptcha(page, "person result page");
               } else {
                 console.log("ℹ️ No email links found for this person");
                 results.push({
