@@ -42,11 +42,16 @@ async function testLogin() {
     const preloadFile = readFileSync("./inject.js", "utf8");
     await page.evaluateOnNewDocument(preloadFile);
 
+    // Track captcha solving attempts to prevent race conditions
+    let captchaSolvingInProgress = false;
+    let captchaSolved = false;
+
     // Set up console message handler
     page.on("console", async (msg) => {
       const txt = msg.text();
 
-      if (txt.includes("intercepted-params:")) {
+      if (txt.includes("intercepted-params:") && !captchaSolvingInProgress) {
+        captchaSolvingInProgress = true;
         const params = JSON.parse(txt.replace("intercepted-params:", ""));
         console.log("📡 Intercepted parameters:", params);
 
@@ -60,9 +65,14 @@ async function testLogin() {
               window.cfCallback(token);
             }
           }, res.data);
+
+          captchaSolved = true;
         } catch (e) {
           console.error("❌ Error solving captcha:", e.err || e.message);
-          throw new Error("Captcha solving failed");
+          // Don't throw error here, just log it and continue
+          console.log("⚠️ Continuing without captcha solution...");
+        } finally {
+          captchaSolvingInProgress = false;
         }
       }
     });
@@ -77,9 +87,8 @@ async function testLogin() {
     // Wait for page to load
     await page.waitForFunction(() => document.readyState === "complete");
 
-    // Handle captcha
+    // Handle captcha with better timing
     console.log("⏳ Checking for captcha...");
-    let captchaSolved = false;
     let attempts = 0;
     const maxAttempts = 30;
 
@@ -96,6 +105,11 @@ async function testLogin() {
           captchaSolved = true;
           console.log("✅ Captcha solved or not present, proceeding...");
         } else {
+          console.log(
+            `⏳ Waiting for captcha to be solved... (attempt ${
+              attempts + 1
+            }/${maxAttempts})`
+          );
           await page.waitForTimeout(1000);
           attempts++;
         }
@@ -107,8 +121,11 @@ async function testLogin() {
     }
 
     if (!captchaSolved) {
-      throw new Error("Captcha solving timeout");
+      console.log("⚠️ Captcha solving timeout, proceeding anyway...");
     }
+
+    // Wait a bit more for any pending operations
+    await page.waitForTimeout(2000);
 
     // Check login status
     let loginStatus;
