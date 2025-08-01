@@ -91,11 +91,16 @@ app.post("/api/search", async (req, res) => {
       const preloadFile = readFileSync("./inject.js", "utf8");
       await page.evaluateOnNewDocument(preloadFile);
 
+      // Track captcha solving attempts to prevent race conditions
+      let captchaSolvingInProgress = false;
+      let captchaSolved = false;
+
       // Set up console message handler
       page.on("console", async (msg) => {
         const txt = msg.text();
 
-        if (txt.includes("intercepted-params:")) {
+        if (txt.includes("intercepted-params:") && !captchaSolvingInProgress) {
+          captchaSolvingInProgress = true;
           const params = JSON.parse(txt.replace("intercepted-params:", ""));
           console.log("📡 Intercepted parameters:", params);
 
@@ -109,9 +114,14 @@ app.post("/api/search", async (req, res) => {
                 window.cfCallback(token);
               }
             }, res.data);
+
+            captchaSolved = true;
           } catch (e) {
             console.error("❌ Error solving captcha:", e.err || e.message);
-            throw new Error("Captcha solving failed");
+            // Don't throw error here, just log it and continue
+            console.log("⚠️ Continuing without captcha solution...");
+          } finally {
+            captchaSolvingInProgress = false;
           }
         }
       });
@@ -126,9 +136,8 @@ app.post("/api/search", async (req, res) => {
       // Wait for page to load
       await page.waitForFunction(() => document.readyState === "complete");
 
-      // Handle captcha
-      console.log("⏳ Checking for captcha...");
-      let captchaSolved = false;
+      // Handle captcha on homepage
+      console.log("⏳ Checking for captcha on homepage...");
       let attempts = 0;
       const maxAttempts = 30; // Reduced to 30 seconds for faster captcha checking
 
@@ -143,21 +152,36 @@ app.post("/api/search", async (req, res) => {
           if (!captchaPresent) {
             await page.waitForTimeout(1000);
             captchaSolved = true;
-            console.log("✅ Captcha solved or not present, proceeding...");
+            console.log(
+              "✅ Captcha solved or not present on homepage, proceeding..."
+            );
           } else {
+            console.log(
+              `⏳ Waiting for captcha to be solved on homepage... (attempt ${
+                attempts + 1
+              }/${maxAttempts})`
+            );
             await page.waitForTimeout(1000);
             attempts++;
           }
         } catch (error) {
-          console.log("⚠️ Error checking captcha, retrying...", error.message);
+          console.log(
+            "⚠️ Error checking captcha on homepage, retrying...",
+            error.message
+          );
           await page.waitForTimeout(1000);
           attempts++;
         }
       }
 
       if (!captchaSolved) {
-        throw new Error("Captcha solving timeout");
+        console.log(
+          "⚠️ Captcha solving timeout on homepage, proceeding anyway..."
+        );
       }
+
+      // Wait a bit more for any pending operations
+      await page.waitForTimeout(2000);
 
       // Check login status and login if needed
       let loginStatus;
@@ -201,29 +225,115 @@ app.post("/api/search", async (req, res) => {
         console.log("✅ Redirected to login page");
 
         // Wait for login form to load
+        await page.waitForTimeout(3000);
+
+        // Reset captcha solved flag for login page
+        captchaSolved = false;
+
+        // Handle captcha on login page specifically
+        console.log("⏳ Checking for captcha on login page...");
+        attempts = 0;
+        const loginPageMaxAttempts = 30;
+
+        while (attempts < loginPageMaxAttempts && !captchaSolved) {
+          try {
+            const captchaElement = await page.$(
+              'input[name="cf-turnstile-response"]'
+            );
+            const captchaContainer = await page.$('div[id^="RInW4"]');
+            const captchaPresent = !!(captchaElement || captchaContainer);
+
+            if (!captchaPresent) {
+              await page.waitForTimeout(1000);
+              captchaSolved = true;
+              console.log(
+                "✅ Captcha solved or not present on login page, proceeding..."
+              );
+            } else {
+              console.log(
+                `⏳ Waiting for captcha to be solved on login page... (attempt ${
+                  attempts + 1
+                }/${loginPageMaxAttempts})`
+              );
+              await page.waitForTimeout(1000);
+              attempts++;
+            }
+          } catch (error) {
+            console.log(
+              "⚠️ Error checking captcha on login page, retrying...",
+              error.message
+            );
+            await page.waitForTimeout(1000);
+            attempts++;
+          }
+        }
+
+        if (!captchaSolved) {
+          console.log(
+            "⚠️ Captcha solving timeout on login page, proceeding anyway..."
+          );
+        }
+
+        // Wait a bit more for any pending operations
         await page.waitForTimeout(2000);
 
         // Fill login form
         console.log("📝 Filling login form...");
         try {
-          const emailInput = await page.$(
+          // Try multiple selectors for email input
+          let emailInput = await page.$(
             '[data-qa-selector="login-username-input"]'
           );
-          const passwordInput = await page.$(
+          if (!emailInput) {
+            emailInput = await page.$('input[type="email"]');
+          }
+          if (!emailInput) {
+            emailInput = await page.$('input[name="email"]');
+          }
+          if (!emailInput) {
+            emailInput = await page.$('input[placeholder*="email" i]');
+          }
+
+          // Try multiple selectors for password input
+          let passwordInput = await page.$(
             '[data-qa-selector="login-password-input"]'
           );
-          const submitButton = await page.$(
+          if (!passwordInput) {
+            passwordInput = await page.$('input[type="password"]');
+          }
+          if (!passwordInput) {
+            passwordInput = await page.$('input[name="password"]');
+          }
+
+          // Try multiple selectors for submit button
+          let submitButton = await page.$(
             '[data-qa-selector="login-submit-btn"]'
           );
+          if (!submitButton) {
+            submitButton = await page.$('button[type="submit"]');
+          }
+          if (!submitButton) {
+            submitButton = await page.$('input[type="submit"]');
+          }
 
           if (emailInput && passwordInput && submitButton) {
+            // Clear fields first
+            await emailInput.click({ clickCount: 3 });
             await emailInput.type(credentials.email);
+            console.log("✅ Email entered");
+
+            await passwordInput.click({ clickCount: 3 });
             await passwordInput.type(credentials.password);
+            console.log("✅ Password entered");
+
+            // Wait a moment before clicking submit
+            await page.waitForTimeout(1000);
+
             await submitButton.click();
             console.log("✅ Login form submitted");
 
             // Wait for login to complete
-            await page.waitForTimeout(1500);
+            await page.waitForTimeout(3000);
           } else {
             console.log("⚠️ Login form elements not found");
           }
