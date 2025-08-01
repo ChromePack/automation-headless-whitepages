@@ -24,7 +24,7 @@ module.exports = {
     production: {
       user: "root",
       host: "31.97.13.50",
-      ref: "origin/master",
+      ref: "origin/main",
       repo: "https://github.com/ChromePack/automation-headless-whitepages",
       path: "/var/www/whitepagesapi-headless",
       "pre-deploy-local": "",
