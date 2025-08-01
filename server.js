@@ -78,11 +78,9 @@ app.post("/api/search", async (req, res) => {
         "--no-first-run",
         "--no-zygote",
         "--disable-gpu",
+        "--window-size=1920,1080",
       ],
-      defaultViewport: {
-        width: 1920,
-        height: 1080,
-      },
+      defaultViewport: null,
       userDataDir: "./browser-data",
     });
 
