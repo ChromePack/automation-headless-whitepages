@@ -501,6 +501,28 @@ app.post("/api/search", async (req, res) => {
                 }
               }
 
+              // Check if we're on a "no results" page
+              const noResultsContainer = await page.$(".no-results-container");
+              if (noResultsContainer) {
+                console.log("ℹ️ No results found for this person, skipping...");
+                results.push({
+                  name: name,
+                  location: location,
+                  error: "No results found",
+                });
+
+                // Navigate back to homepage for next search
+                console.log(
+                  "🏠 Navigating back to homepage for next search..."
+                );
+                await page.goto("https://www.whitepages.com/", {
+                  waitUntil: "networkidle2",
+                  timeout: 30000,
+                });
+                await page.waitForTimeout(2000);
+                continue;
+              }
+
               // Click on the first email link
               console.log("🔍 Looking for email links...");
               const emailLinks = await page.$$(
@@ -534,12 +556,128 @@ app.post("/api/search", async (req, res) => {
               }
             } else {
               console.error("❌ Navbar search form elements not found");
-              results.push({
-                name: name,
-                location: location,
-                error: "Navbar search form not available",
+              console.log(
+                "🏠 Navigating back to homepage to use main search form..."
+              );
+
+              // Navigate back to homepage and use main search form
+              await page.goto("https://www.whitepages.com/", {
+                waitUntil: "networkidle2",
+                timeout: 30000,
               });
-              continue;
+              await page.waitForTimeout(2000);
+
+              // Use the main search form instead
+              const nameInput = await page.$("#search-name");
+              const locationInput = await page.$("#search-location");
+              const searchButton = await page.$("#wp-search");
+
+              if (nameInput && locationInput && searchButton) {
+                // Clear and fill name
+                await nameInput.click({ clickCount: 3 });
+                await nameInput.type(name);
+                console.log("✅ Name entered in main form");
+
+                // Clear and fill location
+                await locationInput.click({ clickCount: 3 });
+                await locationInput.type(location);
+                console.log("✅ Location entered in main form");
+
+                // Wait for location suggestions and click if available
+                await page.waitForTimeout(1000);
+                const suggestions = await page.$$(".location-suggestion");
+                if (suggestions.length > 0) {
+                  await suggestions[0].click();
+                  console.log("✅ Location suggestion clicked");
+                }
+
+                // Click search button
+                await searchButton.click();
+                console.log("✅ Main search form submitted");
+
+                // Wait for search results
+                await page.waitForFunction(
+                  () => document.readyState === "complete"
+                );
+                await page.waitForTimeout(1500);
+
+                // Handle captcha on search results page
+                await handleCaptcha(page, "search results page");
+
+                // Handle Terms of Service modal if it appears
+                const tosModal = await page.$(".tos-modal-card");
+                if (tosModal) {
+                  console.log("✅ Terms of Service modal found, handling...");
+                  const checkbox = await page.$("#tos-checkbox");
+                  if (checkbox) {
+                    await checkbox.click();
+                    console.log("✅ Terms checkbox checked");
+                  }
+                  const continueButton = await page.$(
+                    "[data-js-tos-continue-button]"
+                  );
+                  if (continueButton) {
+                    await continueButton.click();
+                    console.log("✅ Continue to Results button clicked");
+                  }
+                }
+
+                // Check if we're on a "no results" page
+                const noResultsContainer = await page.$(
+                  ".no-results-container"
+                );
+                if (noResultsContainer) {
+                  console.log(
+                    "ℹ️ No results found for this person, skipping..."
+                  );
+                  results.push({
+                    name: name,
+                    location: location,
+                    error: "No results found",
+                  });
+                  continue;
+                }
+
+                // Click on the first email link
+                console.log("🔍 Looking for email links...");
+                const emailLinks = await page.$$(
+                  '[data-qa-selector="email-link"]'
+                );
+
+                if (emailLinks.length > 0) {
+                  console.log(
+                    `✅ Found ${emailLinks.length} email link(s), clicking the first one...`
+                  );
+                  await emailLinks[0].click();
+                  console.log("✅ First email link clicked");
+
+                  // Wait for the person's result page to load
+                  console.log("⏳ Waiting for person's result page to load...");
+                  await page.waitForFunction(
+                    () => document.readyState === "complete"
+                  );
+                  await page.waitForTimeout(2000);
+
+                  // Handle captcha on person result page
+                  await handleCaptcha(page, "person result page");
+                } else {
+                  console.log("ℹ️ No email links found for this person");
+                  results.push({
+                    name: name,
+                    location: location,
+                    error: "No results found",
+                  });
+                  continue;
+                }
+              } else {
+                console.error("❌ Main search form elements not found");
+                results.push({
+                  name: name,
+                  location: location,
+                  error: "Search functionality not available",
+                });
+                continue;
+              }
             }
           } catch (error) {
             console.error(`❌ Error searching for ${name}:`, error.message);
