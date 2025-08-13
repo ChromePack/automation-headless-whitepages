@@ -13,6 +13,21 @@ const PORT = process.env.PORT || 3000;
 // Initialize the 2captcha solver
 const solver = new Solver(process.env.TWOCAPTCHA_API_KEY);
 
+// Timing configuration
+const CAPTCHA_POLL_INTERVAL_MS = parseInt(
+  process.env.CAPTCHA_POLL_INTERVAL_MS || "1000",
+  10
+);
+const CAPTCHA_MAX_WAIT_MS = parseInt(
+  process.env.CAPTCHA_MAX_WAIT_MS || "120000",
+  10
+);
+const POST_SOLVE_SETTLE_MS = parseInt(
+  process.env.POST_SOLVE_SETTLE_MS || "3000",
+  10
+);
+const RESULTS_WAIT_MS = parseInt(process.env.RESULTS_WAIT_MS || "45000", 10);
+
 // Middleware
 app.use(helmet());
 app.use(cors());
@@ -34,52 +49,87 @@ app.get("/health", (req, res) => {
 // Reusable function to handle captcha on any page
 async function handleCaptcha(page, pageName = "current page") {
   console.log(`⏳ Checking for captcha on ${pageName}...`);
-  let attempts = 0;
-  const maxAttempts = 30;
-  let captchaSolved = false;
 
-  while (attempts < maxAttempts && !captchaSolved) {
+  const start = Date.now();
+  let consecutiveClearChecks = 0;
+
+  while (Date.now() - start < CAPTCHA_MAX_WAIT_MS) {
     try {
+      const solvedFlag = await page.evaluate(() => {
+        return Boolean(window.__cfCaptchaSolved);
+      });
+
       const captchaElement = await page.$(
         'input[name="cf-turnstile-response"]'
       );
       const captchaContainer = await page.$('div[id^="RInW4"]');
       const captchaPresent = !!(captchaElement || captchaContainer);
 
-      if (!captchaPresent) {
-        await page.waitForTimeout(1000);
-        captchaSolved = true;
+      if (solvedFlag || !captchaPresent) {
+        consecutiveClearChecks += 1;
+      } else {
+        consecutiveClearChecks = 0;
+      }
+
+      if (consecutiveClearChecks >= 2) {
         console.log(
           `✅ Captcha solved or not present on ${pageName}, proceeding...`
         );
-      } else {
-        console.log(
-          `⏳ Waiting for captcha to be solved on ${pageName}... (attempt ${
-            attempts + 1
-          }/${maxAttempts})`
-        );
-        await page.waitForTimeout(1000);
-        attempts++;
+        try {
+          await page.waitForFunction(() => document.readyState === "complete", {
+            timeout: 15000,
+          });
+        } catch {}
+        await page.waitForTimeout(POST_SOLVE_SETTLE_MS);
+        return true;
       }
+
+      console.log(
+        `⏳ Waiting for captcha to be solved on ${pageName}... (${Math.ceil(
+          (Date.now() - start) / 1000
+        )}s/${Math.floor(CAPTCHA_MAX_WAIT_MS / 1000)}s)`
+      );
+      await page.waitForTimeout(CAPTCHA_POLL_INTERVAL_MS);
     } catch (error) {
       console.log(
         `⚠️ Error checking captcha on ${pageName}, retrying...`,
         error.message
       );
-      await page.waitForTimeout(1000);
-      attempts++;
+      await page.waitForTimeout(CAPTCHA_POLL_INTERVAL_MS);
     }
   }
 
-  if (!captchaSolved) {
-    console.log(
-      `⚠️ Captcha solving timeout on ${pageName}, proceeding anyway...`
-    );
-  }
+  console.log(
+    `⚠️ Captcha solving timeout on ${pageName}, proceeding anyway...`
+  );
+  try {
+    await page.waitForFunction(() => document.readyState === "complete", {
+      timeout: 10000,
+    });
+  } catch {}
+  await page.waitForTimeout(POST_SOLVE_SETTLE_MS);
+  return false;
+}
 
-  // Wait a bit more for any pending operations
-  await page.waitForTimeout(2000);
-  return captchaSolved;
+async function waitForResults(page, context) {
+  try {
+    await page.waitForFunction(
+      () => {
+        const emailLinks = document.querySelectorAll(
+          '[data-qa-selector="email-link"]'
+        ).length;
+        const noResults = document.querySelector(".no-results-container");
+        const resultCards = document.querySelectorAll(
+          '[data-qa-selector="person-card"], [data-qa-selector="result"]'
+        ).length;
+        return emailLinks > 0 || Boolean(noResults) || resultCards > 0;
+      },
+      { timeout: RESULTS_WAIT_MS }
+    );
+  } catch {
+    console.log(`⌛ Timeout waiting for ${context} results, continuing...`);
+  }
+  await page.waitForTimeout(1000);
 }
 
 // Main search endpoint
@@ -160,11 +210,31 @@ app.post("/api/search", async (req, res) => {
             const res = await solver.cloudflareTurnstile(params);
             console.log(`✅ Captcha solved! ID: ${res.id}`);
 
+            try {
+              await page.waitForFunction(
+                () =>
+                  typeof window !== "undefined" &&
+                  typeof document !== "undefined",
+                { timeout: 10000 }
+              );
+            } catch {}
+
             await page.evaluate((token) => {
+              try {
+                window.__cfCaptchaSolved = true;
+              } catch {}
               if (window.cfCallback) {
                 window.cfCallback(token);
               }
             }, res.data);
+
+            try {
+              await page.waitForFunction(
+                () => document.readyState === "complete",
+                { timeout: 15000 }
+              );
+            } catch {}
+            await page.waitForTimeout(POST_SOLVE_SETTLE_MS);
 
             captchaSolved = true;
           } catch (e) {
@@ -369,6 +439,8 @@ app.post("/api/search", async (req, res) => {
               // Handle captcha on search results page
               await handleCaptcha(page, "search results page");
 
+              await waitForResults(page, "search results page");
+
               // Handle Terms of Service modal
               const tosModal = await page.$(".tos-modal-card");
               if (tosModal) {
@@ -482,6 +554,8 @@ app.post("/api/search", async (req, res) => {
 
               // Handle captcha on search results page
               await handleCaptcha(page, "search results page");
+
+              await waitForResults(page, "search results page");
 
               // Handle Terms of Service modal if it appears
               const tosModal = await page.$(".tos-modal-card");
@@ -603,6 +677,8 @@ app.post("/api/search", async (req, res) => {
 
                 // Handle captcha on search results page
                 await handleCaptcha(page, "search results page");
+
+                await waitForResults(page, "search results page");
 
                 // Handle Terms of Service modal if it appears
                 const tosModal = await page.$(".tos-modal-card");
